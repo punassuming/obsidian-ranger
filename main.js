@@ -12,14 +12,47 @@
   Command: Open Ranger FM (default hotkey '-')
 */
 
-const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer } = require('obsidian');
+const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting } = require('obsidian');
+
+// Helper: choose an icon name for a file based on extension
+function iconForFileName(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  // markdown and notes
+  if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org') return 'file-text';
+  // images
+  if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic'].includes(ext)) return 'image';
+  // audio
+  if (['mp3','wav','m4a','flac','ogg','oga','aac','aiff','alac','opus'].includes(ext)) return 'music';
+  // video
+  if (['mp4','mkv','webm','mov','avi','m4v','wmv'].includes(ext)) return 'video';
+  // spreadsheets / data
+  if (['csv','tsv','xls','xlsx','ods'].includes(ext)) return 'table';
+  // presentations / docs
+  if (['pdf','ppt','pptx','odp'].includes(ext)) return 'file-text';
+  // code
+  if (['js','ts','tsx','jsx','json','yaml','yml','toml','xml','html','css','scss','sass','less','py','rb','java','kt','c','cc','cpp','h','hpp','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
+  // archives & packages
+  if (['zip','rar','7z','tar','gz','bz2','xz','tgz'].includes(ext)) return 'package';
+  return 'file';
+}
+
+function setEntryIcon(el, entry) {
+  if (entry instanceof TFolder) {
+    setIcon(el, 'folder');
+  } else if (entry instanceof TFile) {
+    setIcon(el, iconForFileName(entry.name));
+  } else {
+    setIcon(el, 'file');
+  }
+}
 
 const VIEW_TYPE_RANGER = 'ranger-fm-view';
 
 class RangerView extends ItemView {
-  constructor(leaf, app) {
+  constructor(leaf, app, plugin) {
     super(leaf);
     this.app = app;
+    this.plugin = plugin;
     this.currentFolder = this.app.vault.getRoot();
     this.entries = [];
     this.allEntries = [];
@@ -34,6 +67,8 @@ class RangerView extends ItemView {
     this.initialized = false;
     this.lastSearchQuery = '';
     this._suppressEnterUntil = 0;
+    this.showPreview = true;
+    this.showDetails = true;
   }
 
   getViewType() { return VIEW_TYPE_RANGER; }
@@ -56,6 +91,12 @@ class RangerView extends ItemView {
 
   onOpen() {
     this.initialized = true;
+    // adopt defaults from plugin settings if available
+    const s = this.plugin?.settings;
+    if (s) {
+      this.showPreview = !!s.showPreview;
+      this.showDetails = !!s.showDetails;
+    }
     const fileFromPath = (p) => p ? this.app.vault.getAbstractFileByPath(p) : null;
     const startFile = fileFromPath(this.selectFilePath);
     const start = startFile || fileFromPath(this.startFolderPath);
@@ -66,6 +107,7 @@ class RangerView extends ItemView {
     const root = this.contentEl;
     root.empty();
     const host = root.createDiv({ cls: 'ranger-fm', attr: { tabindex: '0' } });
+    this.hostEl = host;
 
     // Path bar
     this.pathEl = host.createDiv({ cls: 'ranger-path' });
@@ -102,6 +144,11 @@ class RangerView extends ItemView {
     this.rightEl = this.layoutEl.createDiv({ cls: 'ranger-right' });
     this.detailsEl = this.rightEl.createDiv({ cls: 'ranger-details' });
     this.previewEl = this.rightEl.createDiv({ cls: 'ranger-preview' });
+    if (!this.showDetails) this.detailsEl.addClass('is-hidden');
+    if (!this.showPreview) {
+      this.previewEl.addClass('is-hidden');
+      this.hostEl.addClass('single');
+    }
 
     this.render();
     host.focus({ preventScroll: true });
@@ -130,9 +177,13 @@ class RangerView extends ItemView {
         return; // ignore Enter immediately after closing search
       }
 
-      if (["j","k","h","l","/","Enter","Escape","q","g","G","n","N"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
+      if (["j","k","h","l","/","Enter","Escape","q","g","G","n","N","z"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
         evt.preventDefault();
         evt.stopPropagation();
+      }
+      if (k === 'Escape' && this.searchActive) {
+        this.exitSearchMode(true, true);
+        return;
       }
       if (evt.ctrlKey && k === 'd') this.move(10);
       else if (evt.ctrlKey && k === 'u') this.move(-10);
@@ -146,6 +197,7 @@ class RangerView extends ItemView {
       else if (k === 'n') this.cycleSearch(1);
       else if (k === 'N') this.cycleSearch(-1);
       else if (k === 'Escape' || k === 'q') this.closeView();
+      else if (k === 'z') this.handleZ();
     });
   }
 
@@ -194,10 +246,9 @@ class RangerView extends ItemView {
   }
 
   render() {
-    // Update entries and clamp selection
+    // Update entries and clamp selection (no filtering; quick-select mode)
     this.allEntries = this.getFolderEntries(this.currentFolder);
-    if (this.searchQuery) this.entries = this.filterEntries(this.searchQuery);
-    else this.entries = this.allEntries;
+    this.entries = this.allEntries;
     // honor a pending file selection
     if (this.preselectPath) {
       const i = this.entries.findIndex(e => e.path === this.preselectPath);
@@ -220,11 +271,11 @@ class RangerView extends ItemView {
     }
 
     this.entries.forEach((entry, idx) => {
-      const isFolder = entry instanceof TFolder;
       const item = this.listEl.createEl('div', { cls: 'ranger-item' });
       if (idx === this.selectedIndex) item.addClass('is-selected');
 
-      const icon = item.createEl('span', { cls: 'ranger-icon', text: isFolder ? '📁' : '📄' });
+      const icon = item.createEl('span', { cls: 'ranger-icon' });
+      setEntryIcon(icon, entry);
       icon.setAttr('aria-hidden', 'true');
       const nameEl = item.createEl('span', { cls: 'ranger-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
@@ -240,6 +291,12 @@ class RangerView extends ItemView {
       item.addEventListener('dblclick', () => {
         this.selectedIndex = idx;
         this.activate();
+      });
+
+      // Context menu
+      item.addEventListener('contextmenu', (evt) => {
+        evt.preventDefault();
+        this.openContextMenu(evt, entry);
       });
     });
 
@@ -328,31 +385,32 @@ class RangerView extends ItemView {
   }
 
   applySearchFilter() {
+    // Quick-select mode: do not filter; highlight matches and jump selection
     this.searchQuery = (this.searchInputEl.value || '').trim();
     if (this.searchQuery) this.lastSearchQuery = this.searchQuery;
-    const prevSelected = this.entries[this.selectedIndex]?.path;
-    this.entries = this.searchQuery ? this.filterEntries(this.searchQuery) : this.allEntries.slice();
-    // Preserve selection when possible
-    if (prevSelected) {
-      const idx = this.entries.findIndex(e => e.path === prevSelected);
-      this.selectedIndex = idx >= 0 ? idx : 0;
-    } else {
-      this.selectedIndex = 0;
+
+    // If current selection doesn't match, move to next match from top
+    const query = this.searchQuery.toLowerCase();
+    const cur = this.entries[this.selectedIndex];
+    const curMatches = query && cur ? cur.name.toLowerCase().includes(query) : false;
+    if (query && !curMatches) {
+      const next = this.entries.findIndex(e => e.name.toLowerCase().includes(query));
+      if (next >= 0) this.selectedIndex = next;
     }
-    // Re-render list based on filtered entries
-    // Don’t change folder path text
+
+    // Re-render list with highlights (all items remain visible)
     this.listEl.empty();
     if (this.entries.length === 0) {
-      this.listEl.createEl('div', { cls: 'ranger-empty', text: '(no matches)' });
+      this.listEl.createEl('div', { cls: 'ranger-empty', text: '(empty)' });
       this.previewEl.empty();
       this.detailsEl.empty();
       return;
     }
     this.entries.forEach((entry, idx) => {
-      const isFolder = entry instanceof TFolder;
       const item = this.listEl.createEl('div', { cls: 'ranger-item' });
       if (idx === this.selectedIndex) item.addClass('is-selected');
-      item.createEl('span', { cls: 'ranger-icon', text: isFolder ? '📁' : '📄' });
+      const icon = item.createEl('span', { cls: 'ranger-icon' });
+      setEntryIcon(icon, entry);
       const nameEl = item.createEl('span', { cls: 'ranger-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
       item.addEventListener('mousemove', () => {
@@ -366,7 +424,14 @@ class RangerView extends ItemView {
         this.selectedIndex = idx;
         this.activate();
       });
+      item.addEventListener('contextmenu', (evt) => {
+        evt.preventDefault();
+        this.openContextMenu(evt, entry);
+      });
     });
+    // Keep selected item in view
+    const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+    if (node) node.scrollIntoView({ block: 'nearest' });
     this.renderPreview();
   }
 
@@ -416,6 +481,71 @@ class RangerView extends ItemView {
     this._gTimer = window.setTimeout(() => { this._gTimer = null; }, 400);
   }
 
+  handleZ() {
+    if (this._zTimer) { // second key in chord
+      window.clearTimeout(this._zTimer);
+      this._zTimer = null;
+      return;
+    }
+    this._zTimer = window.setTimeout(() => { this._zTimer = null; }, 400);
+    // Listen for the next keypress on the host to detect 'p'
+    const onKey = (evt) => {
+      if (!this._zTimer) return;
+      const k = evt.key;
+      if (k === 'p' || k === 'P') {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.togglePreviewPane();
+      }
+      window.clearTimeout(this._zTimer);
+      this._zTimer = null;
+      this.contentEl.removeEventListener('keydown', onKey, true);
+    };
+    this.contentEl.addEventListener('keydown', onKey, true);
+  }
+
+  togglePreviewPane() {
+    this.showPreview = !this.showPreview;
+    if (this.previewEl) {
+      if (this.showPreview) this.previewEl.removeClass('is-hidden');
+      else this.previewEl.addClass('is-hidden');
+    }
+    if (this.hostEl) {
+      if (this.showPreview) this.hostEl.removeClass('single');
+      else this.hostEl.addClass('single');
+    }
+    this.renderPreview();
+  }
+
+  openContextMenu(evt, entry) {
+    const menu = new Menu(this.app);
+    if (entry instanceof TFile) {
+      menu.addItem((i) => i.setTitle('Open').setIcon('file').onClick(() => {
+        this.leaf.openFile(entry);
+      }));
+      menu.addItem((i) => i.setTitle('Open in new pane').setIcon('split').onClick(async () => {
+        const leaf = this.app.workspace.getLeaf(true);
+        await leaf.openFile(entry);
+        this.app.workspace.revealLeaf(leaf);
+      }));
+      menu.addItem((i) => i.setTitle('Copy path').setIcon('copy').onClick(async () => {
+        try { await navigator.clipboard.writeText(entry.path); } catch {}
+      }));
+      menu.addItem((i) => i.setTitle('Delete').setIcon('trash').onClick(async () => {
+        if (confirm(`Delete ${entry.path}?`)) await this.app.vault.delete(entry);
+      }));
+    } else if (entry instanceof TFolder) {
+      menu.addItem((i) => i.setTitle('Enter folder').setIcon('folder').onClick(() => {
+        const idx = this.entries.findIndex(e => e.path === entry.path);
+        if (idx >= 0) { this.selectedIndex = idx; this.activate(); }
+      }));
+      menu.addItem((i) => i.setTitle('Copy path').setIcon('copy').onClick(async () => {
+        try { await navigator.clipboard.writeText(entry.path); } catch {}
+      }));
+    }
+    menu.showAtMouseEvent(evt);
+  }
+
   jumpTop() {
     if (!this.entries.length) return;
     this.selectedIndex = 0;
@@ -435,19 +565,9 @@ class RangerView extends ItemView {
   }
 
   cycleSearch(step) {
-    const query = (this.searchInputEl.value || '').trim() || this.lastSearchQuery || '';
-    if (this.searchQuery) {
-      // When filtering, just cycle within the filtered list
-      if (!this.entries.length) return;
-      this.selectedIndex = (this.selectedIndex + step + this.entries.length) % this.entries.length;
-      this.renderSelectionOnly();
-      const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
-      if (node) node.scrollIntoView({ block: 'nearest' });
-      this.renderPreview();
-      return;
-    }
+    const query = (this.searchInputEl.value || '').trim() || this.searchQuery || this.lastSearchQuery || '';
     if (!query) return;
-    // When not filtering, cycle among matches in the full list
+    // Cycle among matches in the full list
     const matches = this.allEntries
       .map((e, i) => ({ e, i }))
       .filter(x => x.e.name.toLowerCase().includes(query.toLowerCase()));
@@ -477,25 +597,30 @@ class RangerView extends ItemView {
     const isFolder = entry instanceof TFolder;
 
     // Details
-    const title = this.detailsEl.createEl('div', { cls: 'ranger-details-title', text: entry.name });
-    title.setAttr('title', entry.path);
-    const meta = this.detailsEl.createEl('div', { cls: 'ranger-details-meta' });
+    if (this.showDetails) {
+      const title = this.detailsEl.createEl('div', { cls: 'ranger-details-title', text: entry.name });
+      title.setAttr('title', entry.path);
+    }
+    const meta = this.showDetails ? this.detailsEl.createEl('div', { cls: 'ranger-details-meta' }) : null;
     if (isFolder) {
       const kids = this.getFolderEntries(entry);
       const dcount = kids.filter(k => k instanceof TFolder).length;
       const fcount = kids.length - dcount;
-      meta.setText(`${entry.path} • ${dcount} folders, ${fcount} files`);
+      if (meta) meta.setText(`${entry.path} • ${dcount} folders, ${fcount} files`);
       return; // nothing to render as markdown
     }
 
     // File details
     const size = entry.stat?.size ?? 0;
     const mtime = entry.stat?.mtime ? new Date(entry.stat.mtime) : null;
-    const parts = [entry.path, size ? `${size} bytes` : null, mtime ? `modified ${mtime.toLocaleString()}` : null].filter(Boolean);
-    meta.setText(parts.join(' • '));
+    if (meta) {
+      const parts = [entry.path, size ? `${size} bytes` : null, mtime ? `modified ${mtime.toLocaleString()}` : null].filter(Boolean);
+      meta.setText(parts.join(' • '));
+    }
 
     // Render preview (truncate large files)
     const token = ++this.previewToken;
+    if (!this.showPreview) return;
     try {
       let text = await this.app.vault.read(entry);
       if (text && text.length > 50000) {
@@ -511,20 +636,29 @@ class RangerView extends ItemView {
   }
 }
 
+const DEFAULT_SETTINGS = {
+  showPreview: true,
+  showDetails: true,
+};
+
 class RangerFmPlugin extends Plugin {
   async onload() {
+    await this.loadSettings();
+
     this.registerView(
       VIEW_TYPE_RANGER,
-      (leaf) => new RangerView(leaf, this.app)
+      (leaf) => new RangerView(leaf, this.app, this)
     );
+
+    this.addSettingTab(new RangerSettingTab(this.app, this));
 
     this.addCommand({
       id: 'open-ranger-fm',
       name: 'Open Ranger FM',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
-        const leaf = this.app.workspace.getLeaf(false);
         const activeFile = this.app.workspace.getActiveFile();
+        const leaf = this.app.workspace.getLeaf(activeFile ? false : true);
         const startFolder = activeFile?.parent || this.app.vault.getRoot();
         await leaf.setViewState({
           type: VIEW_TYPE_RANGER,
@@ -534,6 +668,62 @@ class RangerFmPlugin extends Plugin {
         this.app.workspace.revealLeaf(leaf);
       },
     });
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+}
+
+class RangerSettingTab extends PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl('h3', { text: 'Ranger FM Settings' });
+
+    new Setting(containerEl)
+      .setName('Show preview by default')
+      .setDesc('Show the markdown preview panel on the right')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.showPreview).onChange(async (v) => {
+        this.plugin.settings.showPreview = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RANGER);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.showPreview = v;
+          if (view.previewEl) {
+            if (v) view.previewEl.removeClass('is-hidden'); else view.previewEl.addClass('is-hidden');
+            view.renderPreview();
+          }
+          if (view.hostEl) {
+            if (v) view.hostEl.removeClass('single'); else view.hostEl.addClass('single');
+          }
+        }
+      }));
+
+    new Setting(containerEl)
+      .setName('Show details by default')
+      .setDesc('Show the file/folder details panel above the preview')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.showDetails).onChange(async (v) => {
+        this.plugin.settings.showDetails = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RANGER);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.showDetails = v;
+          if (view.detailsEl) {
+            if (v) view.detailsEl.removeClass('is-hidden'); else view.detailsEl.addClass('is-hidden');
+            view.renderPreview();
+          }
+        }
+      }));
   }
 }
 

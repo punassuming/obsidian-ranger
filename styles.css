@@ -12,6 +12,7 @@
 }
 .ranger-fm .ranger-search { margin-bottom: 6px; }
 .ranger-fm .ranger-search.is-hidden { display: none; }
+.ranger-fm .is-hidden { display: none; }
 .ranger-fm .ranger-search input {
   width: 100%;
   padding: 6px 8px;
@@ -23,6 +24,13 @@
   gap: 10px;
   flex: 1;
   min-height: 0;
+}
+
+.ranger-fm.single .ranger-layout {
+  grid-template-columns: 1fr;
+}
+.ranger-fm.single .ranger-right {
+  display: none;
 }
 
 .ranger-fm .ranger-left { min-height: 0; }
@@ -42,6 +50,18 @@
   padding: 6px 8px;
   cursor: default;
   font-family: var(--font-text);
+}
+.ranger-fm .ranger-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.ranger-fm .ranger-icon svg {
+  width: 16px;
+  height: 16px;
 }
 .ranger-fm .ranger-item.is-selected {
   background: var(--background-modifier-hover);
