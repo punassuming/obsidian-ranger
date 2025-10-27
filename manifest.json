@@ -1,7 +1,7 @@
 {
   "id": "ranger-fm",
   "name": "Ranger FM",
-  "version": "0.1.1",
+  "version": "0.3.4",
   "minAppVersion": "1.4.0",
   "main": "main.js",
   "css": ["styles.css"],
