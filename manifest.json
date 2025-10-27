@@ -1,0 +1,12 @@
+{
+  "id": "ranger-fm",
+  "name": "Ranger FM",
+  "version": "0.1.1",
+  "minAppVersion": "1.4.0",
+  "main": "main.js",
+  "css": ["styles.css"],
+  "description": "Minimal in-app file manager with ranger-style hjkl navigation. Press '-' to open.",
+  "author": "Codex CLI",
+  "authorUrl": "",
+  "isDesktopOnly": true
+}

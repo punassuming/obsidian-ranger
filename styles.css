@@ -1,0 +1,33 @@
+.ranger-fm {
+  padding: 8px 10px;
+}
+.ranger-fm .ranger-path {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.ranger-fm .ranger-list {
+  outline: none;
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+}
+.ranger-fm .ranger-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: default;
+  font-family: var(--font-text);
+}
+.ranger-fm .ranger-item.is-selected {
+  background: var(--background-modifier-hover);
+}
+.ranger-fm .ranger-empty {
+  padding: 8px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
