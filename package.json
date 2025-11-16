@@ -1,0 +1,25 @@
+{
+  "name": "ranger-fm",
+  "version": "0.3.4",
+  "description": "Minimal in-app file manager with ranger-style hjkl navigation for Obsidian.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "file-manager",
+    "ranger"
+  ],
+  "author": "Codex CLI",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "esbuild": "^0.20.2",
+    "obsidian": "^1.5.11",
+    "typescript": "^5.4.3"
+  }
+}
