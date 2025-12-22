@@ -1,9 +1,32 @@
 # Changelog
 
-All notable changes to Ranger FM will be documented in this file.
+All notable changes to FM - Obsidian File Manager will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.5.0] - 2024-12-22
+
+### Changed
+- **BREAKING**: Renamed from "Ranger FM" to "FM - Obsidian File Manager"
+- Plugin ID changed from `ranger-fm` to `fm-file-manager`
+- CSS class prefix changed from `ranger-` to `fm-`
+- All class names updated: `RangerView` → `FmView`, `RangerFmPlugin` → `FmPlugin`
+
+### Added
+- **File Copy**: Press `yy` to copy files or folders
+- **File Move**: Press `dd` to cut (for moving) files or folders
+- **Paste Operation**: Press `p` to paste copied/cut items
+- Smart name handling when pasting in same folder (adds "copy" suffix)
+- Full recursive folder copy/move support
+- Visual feedback notifications for all operations
+- Enhanced context menus with Copy/Cut options for files and folders
+- Updated status bar showing new file operation shortcuts
+
+### Improved
+- Context menus now include keyboard shortcut hints (e.g., "Copy file (yy)")
+- Better organization of context menu items with separators
+- Updated documentation with file operation instructions
 
 ## [0.4.0] - 2024-12-22
 
@@ -62,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Additional keyboard shortcuts
 - Custom color themes
 - Folder bookmarks
-- File operations (rename, move, etc.)
+- Rename operation
 
+[0.5.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.5.0
 [0.4.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.4.0
 [0.3.4]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.3.4

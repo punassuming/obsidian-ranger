@@ -1,7 +1,7 @@
-# Ranger FM - Quick Reference
+# FM - Obsidian File Manager - Quick Reference
 
-## Opening Ranger FM
-Press **`-`** (hyphen) or use Command Palette: "Open Ranger FM"
+## Opening FM
+Press **`-`** (hyphen) or use Command Palette: "Open FM - File Manager"
 
 ## Navigation
 
@@ -15,6 +15,14 @@ Press **`-`** (hyphen) or use Command Palette: "Open Ranger FM"
 | `Ctrl+u` | Jump up 10 items |
 | `gg` | Jump to top |
 | `G` | Jump to bottom |
+
+## File Operations
+
+| Key | Action |
+|-----|--------|
+| `yy` | Copy file/folder |
+| `dd` | Cut file/folder (for moving) |
+| `p` | Paste copied/cut item |
 
 ## Search
 
@@ -31,7 +39,7 @@ Press **`-`** (hyphen) or use Command Palette: "Open Ranger FM"
 | Key | Action |
 |-----|--------|
 | `zp` | Toggle preview pane |
-| `q` or `Esc` | Close Ranger FM |
+| `q` or `Esc` | Close FM |
 
 ## Mouse Support
 
@@ -44,17 +52,35 @@ Press **`-`** (hyphen) or use Command Palette: "Open Ranger FM"
 ### For Files:
 - Open
 - Open in new pane
+- Copy file (yy)
+- Cut file (dd)
 - Copy path
 - Delete
 
 ### For Folders:
 - Enter folder
+- Copy folder (yy)
+- Cut folder (dd)
 - Copy path
+
+## File Operation Workflow
+
+### Copy a File:
+1. Navigate to file with `j`/`k`
+2. Press `yy` to copy
+3. Navigate to destination folder with `h`/`l`
+4. Press `p` to paste
+
+### Move a File:
+1. Navigate to file with `j`/`k`
+2. Press `dd` to cut
+3. Navigate to destination folder with `h`/`l`
+4. Press `p` to paste
 
 ## Status Bar
 
 Bottom of screen shows keyboard shortcuts:
-`j/k navigate • h/l parent/open • / search • zp toggle preview • q close`
+`j/k navigate • h/l parent/open • yy copy • dd cut • p paste • q close`
 
 ## Tips
 
@@ -63,10 +89,11 @@ Bottom of screen shows keyboard shortcuts:
 - Preview shows markdown rendering
 - Selected items show in accent color
 - Works with your Obsidian theme
+- Copy/move operations support both files and folders
 
 ## Settings
 
-Access via: **Settings → Ranger FM**
+Access via: **Settings → FM - File Manager**
 
 - **Show preview by default** - Toggle markdown preview panel
 - **Show details by default** - Toggle file metadata panel
