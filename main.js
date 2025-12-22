@@ -1,14 +1,26 @@
 /*
-  Ranger FM - a minimal ranger-style file navigator for Obsidian
-  Occupies the current pane (ItemView). Keys:
-    j/k: move selection
+  Ranger FM - A keyboard-driven file navigator for Obsidian
+  Inspired by ranger file manager with vim-style navigation
+  
+  Features:
+    - Vim-style hjkl navigation
+    - Quick search with / key (filter mode with highlighted matches)
+    - Real-time markdown preview pane
+    - File details with metadata
+    - Context menus for file operations
+    - Customizable preview and details panels
+  
+  Key Bindings:
+    j/k: move selection down/up
     l / Enter: open file or enter folder
     h: go up to parent folder
     /: toggle search bar (type to filter)
-    q or Esc: exit search bar or return to previous file
+    n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
-    n / N: cycle next/prev search match
+    zp: toggle preview pane
+    q or Esc: exit search or close view
+  
   Command: Open Ranger FM (default hotkey '-')
 */
 
@@ -149,6 +161,10 @@ class RangerView extends ItemView {
       this.previewEl.addClass('is-hidden');
       this.hostEl.addClass('single');
     }
+
+    // Status bar with keyboard hints
+    this.statusEl = host.createDiv({ cls: 'ranger-status' });
+    this.renderStatusBar();
 
     this.render();
     host.focus({ preventScroll: true });
@@ -587,6 +603,30 @@ class RangerView extends ItemView {
       this.renderPreview();
     }
   }
+
+  renderStatusBar() {
+    if (!this.statusEl) return;
+    this.statusEl.empty();
+    const hints = [
+      { keys: ['j', 'k'], desc: 'navigate' },
+      { keys: ['h', 'l'], desc: 'parent/open' },
+      { keys: ['/'], desc: 'search' },
+      { keys: ['zp'], desc: 'toggle preview' },
+      { keys: ['q'], desc: 'close' },
+    ];
+    hints.forEach((hint, idx) => {
+      if (idx > 0) {
+        this.statusEl.createSpan({ cls: 'ranger-status-sep', text: '•' });
+      }
+      const hintEl = this.statusEl.createSpan({ cls: 'ranger-status-hint' });
+      hint.keys.forEach((key, kidx) => {
+        if (kidx > 0) hintEl.createSpan({ text: '/' });
+        hintEl.createSpan({ cls: 'ranger-status-key', text: key });
+      });
+      hintEl.createSpan({ text: hint.desc });
+    });
+  }
+
   // --- Preview & details ---
   async renderPreview() {
     this.detailsEl.empty();

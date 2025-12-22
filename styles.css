@@ -1,21 +1,39 @@
 .ranger-fm {
-  padding: 8px 10px;
+  padding: 12px 14px;
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--background-primary);
 }
+
 .ranger-fm .ranger-path {
   font-family: var(--font-monospace);
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-accent);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--interactive-accent);
+  font-weight: 500;
 }
-.ranger-fm .ranger-search { margin-bottom: 6px; }
+.ranger-fm .ranger-search { 
+  margin-bottom: 8px; 
+}
 .ranger-fm .ranger-search.is-hidden { display: none; }
 .ranger-fm .is-hidden { display: none; }
 .ranger-fm .ranger-search input {
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 2px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  font-size: 14px;
+}
+.ranger-fm .ranger-search input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--interactive-accent-hover);
 }
 
 .ranger-fm .ranger-layout {
@@ -40,56 +58,127 @@
   outline: none;
   height: 100%;
   overflow: auto;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  padding: 4px;
 }
 .ranger-fm .ranger-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 10px;
+  padding: 8px 12px;
   cursor: default;
   font-family: var(--font-text);
+  border-radius: 4px;
+  margin-bottom: 2px;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.ranger-fm .ranger-item:hover {
+  background: var(--background-modifier-hover);
 }
 .ranger-fm .ranger-icon {
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--text-accent);
 }
 .ranger-fm .ranger-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 .ranger-fm .ranger-item.is-selected {
-  background: var(--background-modifier-hover);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 500;
+}
+.ranger-fm .ranger-item.is-selected .ranger-icon {
+  color: var(--text-on-accent);
+}
+.ranger-fm .ranger-item.is-selected .ranger-name {
+  color: var(--text-on-accent);
 }
 .ranger-fm .ranger-name .ranger-match {
-  background: var(--text-highlight-bg, rgba(255, 208, 0, 0.35));
+  background: var(--text-highlight-bg, rgba(255, 208, 0, 0.45));
   color: inherit;
+  font-weight: 600;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+.ranger-fm .ranger-item.is-selected .ranger-match {
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--text-on-accent);
 }
 .ranger-fm .ranger-empty {
-  padding: 8px;
+  padding: 20px;
   color: var(--text-muted);
   font-style: italic;
+  text-align: center;
+  font-size: 14px;
 }
 
 .ranger-fm .ranger-details {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--interactive-accent);
 }
 .ranger-fm .ranger-details-title {
   font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--text-normal);
 }
 .ranger-fm .ranger-details-meta {
   font-size: 12px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 .ranger-fm .ranger-preview {
   flex: 1;
   overflow: auto;
-  padding: 8px;
-  border: 1px solid var(--background-modifier-border);
+  padding: 12px;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+}
+.ranger-fm .ranger-preview-error {
+  color: var(--text-error);
+  padding: 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Status bar */
+.ranger-fm .ranger-status {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--background-secondary);
   border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-family: var(--font-monospace);
+}
+.ranger-fm .ranger-status-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ranger-fm .ranger-status-key {
+  background: var(--background-modifier-border);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  color: var(--text-normal);
+  font-size: 10px;
+}
+.ranger-fm .ranger-status-sep {
+  color: var(--background-modifier-border);
+  margin: 0 2px;
 }
