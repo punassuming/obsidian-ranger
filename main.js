@@ -466,7 +466,14 @@ class FmView extends ItemView {
     return this.allEntries.filter((e) => e.name.toLowerCase().includes(q));
   }
 
-  // Render a file/folder name with matched segments highlighted
+  /**
+   * Renders a file/folder name with search query matches highlighted.
+   * Escapes HTML to prevent XSS, then wraps matching segments in <span> tags.
+   * 
+   * @param {string} name - The file or folder name to render
+   * @param {string} query - The search query to highlight (case-insensitive)
+   * @returns {string} HTML string with highlighted matches
+   */
   renderNameWithHighlight(name, query) {
     if (!query) return this.escapeHtml(name);
     const q = query.toLowerCase();
@@ -584,8 +591,8 @@ class FmView extends ItemView {
     const source = this.clipboard;
     const destFolder = this.currentFolder;
 
-    // Check if source and destination are the same
-    if (source instanceof TFile && source.parent?.path === destFolder.path && this.clipboardOperation === 'copy') {
+    // Use helper to check if we're pasting in the same location
+    if (this.isSameFolderCopy(source, destFolder)) {
       // Need to create a copy with a different name
       await this.copyFileWithNewName(source, destFolder);
     } else if (source instanceof TFolder && source.path === destFolder.path) {
@@ -602,6 +609,12 @@ class FmView extends ItemView {
     this.render();
   }
 
+  isSameFolderCopy(source, destFolder) {
+    return source instanceof TFile && 
+           source.parent?.path === destFolder.path && 
+           this.clipboardOperation === 'copy';
+  }
+
   async copyFileWithNewName(file, destFolder) {
     const ext = file.extension;
     const baseName = file.basename;
@@ -609,11 +622,17 @@ class FmView extends ItemView {
     let newName = `${baseName} copy.${ext}`;
     let newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
 
-    // Find available name
-    while (this.app.vault.getAbstractFileByPath(newPath)) {
+    // Find available name (with safety limit)
+    const MAX_ATTEMPTS = 1000;
+    while (this.app.vault.getAbstractFileByPath(newPath) && counter < MAX_ATTEMPTS) {
       counter++;
       newName = `${baseName} copy ${counter}.${ext}`;
       newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
+    }
+
+    if (counter >= MAX_ATTEMPTS) {
+      new Notice('Failed to find available filename');
+      return;
     }
 
     try {
