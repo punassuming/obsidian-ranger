@@ -15,9 +15,11 @@ Before submitting, ensure you have:
 
 ## Step 1: Prepare Your Repository
 
-### 1.1 Add a Screenshot
+### 1.1 Add a Screenshot ⚠️ Required
 
-Take a screenshot of Ranger FM in action and save it as `screenshot.png` in the root directory. This helps users see what the plugin looks like.
+**This is a required step before submission.**
+
+Take a screenshot of Ranger FM in action and save it as `screenshot.png` in the root directory. This helps users see what the plugin looks like before installing.
 
 ### 1.2 Verify manifest.json
 

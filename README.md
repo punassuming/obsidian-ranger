@@ -2,7 +2,7 @@
 
 A minimal, keyboard-driven file navigator for Obsidian with ranger-style navigation. Browse your vault files efficiently using vim-inspired hjkl keys.
 
-![Ranger FM Interface](screenshot.png)
+> **Note:** Screenshot coming soon! See [SCREENSHOT_GUIDE.md](SCREENSHOT_GUIDE.md) for how to capture plugin screenshots.
 
 ## Features
 
