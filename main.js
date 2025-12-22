@@ -1,12 +1,13 @@
 /*
-  Ranger FM - A keyboard-driven file navigator for Obsidian
-  Inspired by ranger file manager with vim-style navigation
+  FM - Obsidian File Manager
+  A complete file manager with keyboard navigation and file operations
   
   Features:
     - Vim-style hjkl navigation
     - Quick search with / key (filter mode with highlighted matches)
     - Real-time markdown preview pane
     - File details with metadata
+    - File operations: copy, move, delete
     - Context menus for file operations
     - Customizable preview and details panels
   
@@ -20,11 +21,14 @@
     gg / G: jump to top/bottom
     zp: toggle preview pane
     q or Esc: exit search or close view
+    yy: copy file/folder
+    dd: cut (move) file/folder
+    p: paste
   
-  Command: Open Ranger FM (default hotkey '-')
+  Command: Open FM (default hotkey '-')
 */
 
-const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting } = require('obsidian');
+const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
 
 // Helper: choose an icon name for a file based on extension
 function iconForFileName(name) {
@@ -58,9 +62,9 @@ function setEntryIcon(el, entry) {
   }
 }
 
-const VIEW_TYPE_RANGER = 'ranger-fm-view';
+const VIEW_TYPE_FM = 'fm-file-manager-view';
 
-class RangerView extends ItemView {
+class FmView extends ItemView {
   constructor(leaf, app, plugin) {
     super(leaf);
     this.app = app;
@@ -81,10 +85,13 @@ class RangerView extends ItemView {
     this._suppressEnterUntil = 0;
     this.showPreview = true;
     this.showDetails = true;
+    // Clipboard for copy/move operations
+    this.clipboard = null;
+    this.clipboardOperation = null; // 'copy' or 'cut'
   }
 
-  getViewType() { return VIEW_TYPE_RANGER; }
-  getDisplayText() { return 'Ranger FM'; }
+  getViewType() { return VIEW_TYPE_FM; }
+  getDisplayText() { return 'FM - File Manager'; }
 
   async setState(state) {
     this.prevFilePath = state?.prevFile || null;
@@ -118,13 +125,13 @@ class RangerView extends ItemView {
 
     const root = this.contentEl;
     root.empty();
-    const host = root.createDiv({ cls: 'ranger-fm', attr: { tabindex: '0' } });
+    const host = root.createDiv({ cls: 'fm-fm', attr: { tabindex: '0' } });
     this.hostEl = host;
 
     // Path bar
-    this.pathEl = host.createDiv({ cls: 'ranger-path' });
+    this.pathEl = host.createDiv({ cls: 'fm-path' });
     // Search bar
-    this.searchWrapEl = host.createDiv({ cls: 'ranger-search is-hidden' });
+    this.searchWrapEl = host.createDiv({ cls: 'fm-search is-hidden' });
     this.searchInputEl = this.searchWrapEl.createEl('input', { type: 'text', placeholder: 'Search (Esc to exit)...' });
     this.registerDomEvent(this.searchInputEl, 'input', () => this.applySearchFilter());
     this.registerDomEvent(this.searchInputEl, 'keydown', (evt) => {
@@ -150,12 +157,12 @@ class RangerView extends ItemView {
       }
     });
     // Layout
-    this.layoutEl = host.createDiv({ cls: 'ranger-layout' });
-    this.leftEl = this.layoutEl.createDiv({ cls: 'ranger-left' });
-    this.listEl = this.leftEl.createDiv({ cls: 'ranger-list', attr: { tabindex: '0' } });
-    this.rightEl = this.layoutEl.createDiv({ cls: 'ranger-right' });
-    this.detailsEl = this.rightEl.createDiv({ cls: 'ranger-details' });
-    this.previewEl = this.rightEl.createDiv({ cls: 'ranger-preview' });
+    this.layoutEl = host.createDiv({ cls: 'fm-layout' });
+    this.leftEl = this.layoutEl.createDiv({ cls: 'fm-left' });
+    this.listEl = this.leftEl.createDiv({ cls: 'fm-list', attr: { tabindex: '0' } });
+    this.rightEl = this.layoutEl.createDiv({ cls: 'fm-right' });
+    this.detailsEl = this.rightEl.createDiv({ cls: 'fm-details' });
+    this.previewEl = this.rightEl.createDiv({ cls: 'fm-preview' });
     if (!this.showDetails) this.detailsEl.addClass('is-hidden');
     if (!this.showPreview) {
       this.previewEl.addClass('is-hidden');
@@ -163,7 +170,7 @@ class RangerView extends ItemView {
     }
 
     // Status bar with keyboard hints
-    this.statusEl = host.createDiv({ cls: 'ranger-status' });
+    this.statusEl = host.createDiv({ cls: 'fm-status' });
     this.renderStatusBar();
 
     this.render();
@@ -193,7 +200,7 @@ class RangerView extends ItemView {
         return; // ignore Enter immediately after closing search
       }
 
-      if (["j","k","h","l","/","Enter","Escape","q","g","G","n","N","z"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
+      if (["j","k","h","l","/","Enter","Escape","q","g","G","n","N","z","y","d","p"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
         evt.preventDefault();
         evt.stopPropagation();
       }
@@ -214,6 +221,9 @@ class RangerView extends ItemView {
       else if (k === 'N') this.cycleSearch(-1);
       else if (k === 'Escape' || k === 'q') this.closeView();
       else if (k === 'z') this.handleZ();
+      else if (k === 'y') this.handleY();
+      else if (k === 'd') this.handleD();
+      else if (k === 'p') this.handleP();
     });
   }
 
@@ -281,19 +291,19 @@ class RangerView extends ItemView {
     // Render list
     this.listEl.empty();
     if (this.entries.length === 0) {
-      this.listEl.createEl('div', { cls: 'ranger-empty', text: '(empty)' });
+      this.listEl.createEl('div', { cls: 'fm-empty', text: '(empty)' });
       this.renderPreview();
       return;
     }
 
     this.entries.forEach((entry, idx) => {
-      const item = this.listEl.createEl('div', { cls: 'ranger-item' });
+      const item = this.listEl.createEl('div', { cls: 'fm-item' });
       if (idx === this.selectedIndex) item.addClass('is-selected');
 
-      const icon = item.createEl('span', { cls: 'ranger-icon' });
+      const icon = item.createEl('span', { cls: 'fm-icon' });
       setEntryIcon(icon, entry);
       icon.setAttr('aria-hidden', 'true');
-      const nameEl = item.createEl('span', { cls: 'ranger-name' });
+      const nameEl = item.createEl('span', { cls: 'fm-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
 
       // Mouse support (optional)
@@ -417,17 +427,17 @@ class RangerView extends ItemView {
     // Re-render list with highlights (all items remain visible)
     this.listEl.empty();
     if (this.entries.length === 0) {
-      this.listEl.createEl('div', { cls: 'ranger-empty', text: '(empty)' });
+      this.listEl.createEl('div', { cls: 'fm-empty', text: '(empty)' });
       this.previewEl.empty();
       this.detailsEl.empty();
       return;
     }
     this.entries.forEach((entry, idx) => {
-      const item = this.listEl.createEl('div', { cls: 'ranger-item' });
+      const item = this.listEl.createEl('div', { cls: 'fm-item' });
       if (idx === this.selectedIndex) item.addClass('is-selected');
-      const icon = item.createEl('span', { cls: 'ranger-icon' });
+      const icon = item.createEl('span', { cls: 'fm-icon' });
       setEntryIcon(icon, entry);
-      const nameEl = item.createEl('span', { cls: 'ranger-name' });
+      const nameEl = item.createEl('span', { cls: 'fm-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
       item.addEventListener('mousemove', () => {
         if (this.selectedIndex !== idx) {
@@ -520,6 +530,157 @@ class RangerView extends ItemView {
     this.contentEl.addEventListener('keydown', onKey, true);
   }
 
+  handleY() {
+    // yy: copy file/folder
+    if (this._yTimer) { // second 'y'
+      window.clearTimeout(this._yTimer);
+      this._yTimer = null;
+      this.copyEntry();
+      return;
+    }
+    this._yTimer = window.setTimeout(() => { this._yTimer = null; }, 400);
+  }
+
+  handleD() {
+    // dd: cut (move) file/folder
+    if (this._dTimer) { // second 'd'
+      window.clearTimeout(this._dTimer);
+      this._dTimer = null;
+      this.cutEntry();
+      return;
+    }
+    this._dTimer = window.setTimeout(() => { this._dTimer = null; }, 400);
+  }
+
+  handleP() {
+    // p: paste
+    this.pasteEntry();
+  }
+
+  copyEntry() {
+    if (!this.entries.length) return;
+    const entry = this.entries[this.selectedIndex];
+    this.clipboard = entry;
+    this.clipboardOperation = 'copy';
+    // Visual feedback
+    new Notice(`Copied: ${entry.name}`);
+  }
+
+  cutEntry() {
+    if (!this.entries.length) return;
+    const entry = this.entries[this.selectedIndex];
+    this.clipboard = entry;
+    this.clipboardOperation = 'cut';
+    // Visual feedback
+    new Notice(`Cut: ${entry.name} (ready to move)`);
+  }
+
+  async pasteEntry() {
+    if (!this.clipboard) {
+      new Notice('Nothing to paste');
+      return;
+    }
+
+    const source = this.clipboard;
+    const destFolder = this.currentFolder;
+
+    // Check if source and destination are the same
+    if (source instanceof TFile && source.parent?.path === destFolder.path && this.clipboardOperation === 'copy') {
+      // Need to create a copy with a different name
+      await this.copyFileWithNewName(source, destFolder);
+    } else if (source instanceof TFolder && source.path === destFolder.path) {
+      new Notice('Cannot paste folder into itself');
+      return;
+    } else if (this.clipboardOperation === 'copy') {
+      await this.copyToFolder(source, destFolder);
+    } else if (this.clipboardOperation === 'cut') {
+      await this.moveToFolder(source, destFolder);
+      this.clipboard = null;
+      this.clipboardOperation = null;
+    }
+
+    this.render();
+  }
+
+  async copyFileWithNewName(file, destFolder) {
+    const ext = file.extension;
+    const baseName = file.basename;
+    let counter = 1;
+    let newName = `${baseName} copy.${ext}`;
+    let newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
+
+    // Find available name
+    while (this.app.vault.getAbstractFileByPath(newPath)) {
+      counter++;
+      newName = `${baseName} copy ${counter}.${ext}`;
+      newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
+    }
+
+    try {
+      const content = await this.app.vault.read(file);
+      await this.app.vault.create(newPath, content);
+      new Notice(`Copied to: ${newName}`);
+    } catch (err) {
+      new Notice(`Failed to copy: ${err.message}`);
+    }
+  }
+
+  async copyToFolder(source, destFolder) {
+    const newPath = destFolder.path === '/' ? source.name : `${destFolder.path}/${source.name}`;
+    
+    // Check if destination already exists
+    if (this.app.vault.getAbstractFileByPath(newPath)) {
+      new Notice(`Already exists: ${source.name}`);
+      return;
+    }
+
+    try {
+      if (source instanceof TFile) {
+        const content = await this.app.vault.read(source);
+        await this.app.vault.create(newPath, content);
+        new Notice(`Copied: ${source.name}`);
+      } else if (source instanceof TFolder) {
+        await this.copyFolderRecursive(source, newPath);
+        new Notice(`Copied folder: ${source.name}`);
+      }
+    } catch (err) {
+      new Notice(`Failed to copy: ${err.message}`);
+    }
+  }
+
+  async copyFolderRecursive(sourceFolder, destPath) {
+    // Create destination folder
+    await this.app.vault.createFolder(destPath);
+
+    // Copy all children
+    for (const child of sourceFolder.children) {
+      const childDestPath = `${destPath}/${child.name}`;
+      if (child instanceof TFile) {
+        const content = await this.app.vault.read(child);
+        await this.app.vault.create(childDestPath, content);
+      } else if (child instanceof TFolder) {
+        await this.copyFolderRecursive(child, childDestPath);
+      }
+    }
+  }
+
+  async moveToFolder(source, destFolder) {
+    const newPath = destFolder.path === '/' ? source.name : `${destFolder.path}/${source.name}`;
+    
+    // Check if destination already exists
+    if (this.app.vault.getAbstractFileByPath(newPath)) {
+      new Notice(`Already exists: ${source.name}`);
+      return;
+    }
+
+    try {
+      await this.app.vault.rename(source, newPath);
+      new Notice(`Moved: ${source.name}`);
+    } catch (err) {
+      new Notice(`Failed to move: ${err.message}`);
+    }
+  }
+
   togglePreviewPane() {
     this.showPreview = !this.showPreview;
     if (this.previewEl) {
@@ -544,18 +705,41 @@ class RangerView extends ItemView {
         await leaf.openFile(entry);
         this.app.workspace.revealLeaf(leaf);
       }));
-      menu.addItem((i) => i.setTitle('Copy path').setIcon('copy').onClick(async () => {
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Copy file (yy)').setIcon('copy').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.copyEntry();
+      }));
+      menu.addItem((i) => i.setTitle('Cut file (dd)').setIcon('scissors').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.cutEntry();
+      }));
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Copy path').setIcon('clipboard').onClick(async () => {
         try { await navigator.clipboard.writeText(entry.path); } catch {}
       }));
       menu.addItem((i) => i.setTitle('Delete').setIcon('trash').onClick(async () => {
-        if (confirm(`Delete ${entry.path}?`)) await this.app.vault.delete(entry);
+        if (confirm(`Delete ${entry.path}?`)) {
+          await this.app.vault.delete(entry);
+          this.render();
+        }
       }));
     } else if (entry instanceof TFolder) {
       menu.addItem((i) => i.setTitle('Enter folder').setIcon('folder').onClick(() => {
         const idx = this.entries.findIndex(e => e.path === entry.path);
         if (idx >= 0) { this.selectedIndex = idx; this.activate(); }
       }));
-      menu.addItem((i) => i.setTitle('Copy path').setIcon('copy').onClick(async () => {
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Copy folder (yy)').setIcon('copy').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.copyEntry();
+      }));
+      menu.addItem((i) => i.setTitle('Cut folder (dd)').setIcon('scissors').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.cutEntry();
+      }));
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Copy path').setIcon('clipboard').onClick(async () => {
         try { await navigator.clipboard.writeText(entry.path); } catch {}
       }));
     }
@@ -611,17 +795,19 @@ class RangerView extends ItemView {
       { keys: ['j', 'k'], desc: 'navigate' },
       { keys: ['h', 'l'], desc: 'parent/open' },
       { keys: ['/'], desc: 'search' },
-      { keys: ['zp'], desc: 'toggle preview' },
+      { keys: ['yy'], desc: 'copy' },
+      { keys: ['dd'], desc: 'cut' },
+      { keys: ['p'], desc: 'paste' },
       { keys: ['q'], desc: 'close' },
     ];
     hints.forEach((hint, idx) => {
       if (idx > 0) {
-        this.statusEl.createSpan({ cls: 'ranger-status-sep', text: '•' });
+        this.statusEl.createSpan({ cls: 'fm-status-sep', text: '•' });
       }
-      const hintEl = this.statusEl.createSpan({ cls: 'ranger-status-hint' });
+      const hintEl = this.statusEl.createSpan({ cls: 'fm-status-hint' });
       hint.keys.forEach((key, kidx) => {
         if (kidx > 0) hintEl.createSpan({ text: '/' });
-        hintEl.createSpan({ cls: 'ranger-status-key', text: key });
+        hintEl.createSpan({ cls: 'fm-status-key', text: key });
       });
       hintEl.createSpan({ text: hint.desc });
     });
@@ -638,10 +824,10 @@ class RangerView extends ItemView {
 
     // Details
     if (this.showDetails) {
-      const title = this.detailsEl.createEl('div', { cls: 'ranger-details-title', text: entry.name });
+      const title = this.detailsEl.createEl('div', { cls: 'fm-details-title', text: entry.name });
       title.setAttr('title', entry.path);
     }
-    const meta = this.showDetails ? this.detailsEl.createEl('div', { cls: 'ranger-details-meta' }) : null;
+    const meta = this.showDetails ? this.detailsEl.createEl('div', { cls: 'fm-details-meta' }) : null;
     if (isFolder) {
       const kids = this.getFolderEntries(entry);
       const dcount = kids.filter(k => k instanceof TFolder).length;
@@ -671,7 +857,7 @@ class RangerView extends ItemView {
       this.previewEl.addClass('markdown-preview-view');
     } catch (e) {
       if (token !== this.previewToken) return;
-      this.previewEl.createEl('div', { cls: 'ranger-preview-error', text: 'Unable to render preview.' });
+      this.previewEl.createEl('div', { cls: 'fm-preview-error', text: 'Unable to render preview.' });
     }
   }
 }
@@ -681,27 +867,27 @@ const DEFAULT_SETTINGS = {
   showDetails: true,
 };
 
-class RangerFmPlugin extends Plugin {
+class FmPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
     this.registerView(
-      VIEW_TYPE_RANGER,
-      (leaf) => new RangerView(leaf, this.app, this)
+      VIEW_TYPE_FM,
+      (leaf) => new FmView(leaf, this.app, this)
     );
 
-    this.addSettingTab(new RangerSettingTab(this.app, this));
+    this.addSettingTab(new FmSettingTab(this.app, this));
 
     this.addCommand({
-      id: 'open-ranger-fm',
-      name: 'Open Ranger FM',
+      id: 'open-fm-file-manager',
+      name: 'Open FM - File Manager',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
         const leaf = this.app.workspace.getLeaf(activeFile ? false : true);
         const startFolder = activeFile?.parent || this.app.vault.getRoot();
         await leaf.setViewState({
-          type: VIEW_TYPE_RANGER,
+          type: VIEW_TYPE_FM,
           active: true,
           state: { startFolder: startFolder.path, selectFile: activeFile?.path || null, prevFile: activeFile?.path || null },
         });
@@ -718,7 +904,7 @@ class RangerFmPlugin extends Plugin {
   }
 }
 
-class RangerSettingTab extends PluginSettingTab {
+class FmSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -726,7 +912,7 @@ class RangerSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h3', { text: 'Ranger FM Settings' });
+    containerEl.createEl('h3', { text: 'FM - File Manager Settings' });
 
     new Setting(containerEl)
       .setName('Show preview by default')
@@ -734,7 +920,7 @@ class RangerSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(!!this.plugin.settings.showPreview).onChange(async (v) => {
         this.plugin.settings.showPreview = v;
         await this.plugin.saveSettings();
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RANGER);
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
         for (const leaf of leaves) {
           const view = leaf.view;
           view.showPreview = v;
@@ -754,7 +940,7 @@ class RangerSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(!!this.plugin.settings.showDetails).onChange(async (v) => {
         this.plugin.settings.showDetails = v;
         await this.plugin.saveSettings();
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RANGER);
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
         for (const leaf of leaves) {
           const view = leaf.view;
           view.showDetails = v;
@@ -767,4 +953,4 @@ class RangerSettingTab extends PluginSettingTab {
   }
 }
 
-module.exports = RangerFmPlugin;
+module.exports = FmPlugin;

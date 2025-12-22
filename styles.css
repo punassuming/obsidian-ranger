@@ -1,4 +1,4 @@
-.ranger-fm {
+.fm-fm {
   padding: 12px 14px;
   height: 100%;
   display: flex;
@@ -6,7 +6,7 @@
   background: var(--background-primary);
 }
 
-.ranger-fm .ranger-path {
+.fm-fm .fm-path {
   font-family: var(--font-monospace);
   font-size: 13px;
   color: var(--text-accent);
@@ -17,12 +17,12 @@
   border-left: 3px solid var(--interactive-accent);
   font-weight: 500;
 }
-.ranger-fm .ranger-search { 
+.fm-fm .fm-search { 
   margin-bottom: 8px; 
 }
-.ranger-fm .ranger-search.is-hidden { display: none; }
-.ranger-fm .is-hidden { display: none; }
-.ranger-fm .ranger-search input {
+.fm-fm .fm-search.is-hidden { display: none; }
+.fm-fm .is-hidden { display: none; }
+.fm-fm .fm-search input {
   width: 100%;
   padding: 8px 12px;
   border-radius: 6px;
@@ -30,13 +30,13 @@
   background: var(--background-primary);
   font-size: 14px;
 }
-.ranger-fm .ranger-search input:focus {
+.fm-fm .fm-search input:focus {
   border-color: var(--interactive-accent);
   outline: none;
   box-shadow: 0 0 0 2px var(--interactive-accent-hover);
 }
 
-.ranger-fm .ranger-layout {
+.fm-fm .fm-layout {
   display: grid;
   grid-template-columns: 40% 60%;
   gap: 10px;
@@ -44,17 +44,17 @@
   min-height: 0;
 }
 
-.ranger-fm.single .ranger-layout {
+.fm-fm.single .fm-layout {
   grid-template-columns: 1fr;
 }
-.ranger-fm.single .ranger-right {
+.fm-fm.single .fm-right {
   display: none;
 }
 
-.ranger-fm .ranger-left { min-height: 0; }
-.ranger-fm .ranger-right { min-height: 0; display: flex; flex-direction: column; }
+.fm-fm .fm-left { min-height: 0; }
+.fm-fm .fm-right { min-height: 0; display: flex; flex-direction: column; }
 
-.ranger-fm .ranger-list {
+.fm-fm .fm-list {
   outline: none;
   height: 100%;
   overflow: auto;
@@ -63,7 +63,7 @@
   background: var(--background-primary);
   padding: 4px;
 }
-.ranger-fm .ranger-item {
+.fm-fm .fm-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -74,10 +74,10 @@
   margin-bottom: 2px;
   transition: background-color 0.15s ease, transform 0.1s ease;
 }
-.ranger-fm .ranger-item:hover {
+.fm-fm .fm-item:hover {
   background: var(--background-modifier-hover);
 }
-.ranger-fm .ranger-icon {
+.fm-fm .fm-icon {
   display: inline-flex;
   width: 18px;
   height: 18px;
@@ -85,33 +85,33 @@
   justify-content: center;
   color: var(--text-accent);
 }
-.ranger-fm .ranger-icon svg {
+.fm-fm .fm-icon svg {
   width: 18px;
   height: 18px;
 }
-.ranger-fm .ranger-item.is-selected {
+.fm-fm .fm-item.is-selected {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   font-weight: 500;
 }
-.ranger-fm .ranger-item.is-selected .ranger-icon {
+.fm-fm .fm-item.is-selected .fm-icon {
   color: var(--text-on-accent);
 }
-.ranger-fm .ranger-item.is-selected .ranger-name {
+.fm-fm .fm-item.is-selected .fm-name {
   color: var(--text-on-accent);
 }
-.ranger-fm .ranger-name .ranger-match {
+.fm-fm .fm-name .fm-match {
   background: var(--text-highlight-bg, rgba(255, 208, 0, 0.45));
   color: inherit;
   font-weight: 600;
   padding: 1px 2px;
   border-radius: 2px;
 }
-.ranger-fm .ranger-item.is-selected .ranger-match {
+.fm-fm .fm-item.is-selected .fm-match {
   background: rgba(255, 255, 255, 0.3);
   color: var(--text-on-accent);
 }
-.ranger-fm .ranger-empty {
+.fm-fm .fm-empty {
   padding: 20px;
   color: var(--text-muted);
   font-style: italic;
@@ -119,25 +119,25 @@
   font-size: 14px;
 }
 
-.ranger-fm .ranger-details {
+.fm-fm .fm-details {
   margin-bottom: 8px;
   padding: 10px 12px;
   background: var(--background-secondary);
   border-radius: 6px;
   border-left: 3px solid var(--interactive-accent);
 }
-.ranger-fm .ranger-details-title {
+.fm-fm .fm-details-title {
   font-weight: 600;
   font-size: 14px;
   margin-bottom: 4px;
   color: var(--text-normal);
 }
-.ranger-fm .ranger-details-meta {
+.fm-fm .fm-details-meta {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.4;
 }
-.ranger-fm .ranger-preview {
+.fm-fm .fm-preview {
   flex: 1;
   overflow: auto;
   padding: 12px;
@@ -145,7 +145,7 @@
   border-radius: 8px;
   background: var(--background-primary);
 }
-.ranger-fm .ranger-preview-error {
+.fm-fm .fm-preview-error {
   color: var(--text-error);
   padding: 12px;
   text-align: center;
@@ -153,7 +153,7 @@
 }
 
 /* Status bar */
-.ranger-fm .ranger-status {
+.fm-fm .fm-status {
   margin-top: 8px;
   padding: 8px 10px;
   background: var(--background-secondary);
@@ -165,12 +165,12 @@
   gap: 12px;
   font-family: var(--font-monospace);
 }
-.ranger-fm .ranger-status-hint {
+.fm-fm .fm-status-hint {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
-.ranger-fm .ranger-status-key {
+.fm-fm .fm-status-key {
   background: var(--background-modifier-border);
   padding: 2px 6px;
   border-radius: 3px;
@@ -178,7 +178,7 @@
   color: var(--text-normal);
   font-size: 10px;
 }
-.ranger-fm .ranger-status-sep {
+.fm-fm .fm-status-sep {
   color: var(--background-modifier-border);
   margin: 0 2px;
 }

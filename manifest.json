@@ -1,11 +1,11 @@
 {
-  "id": "ranger-fm",
-  "name": "Ranger FM",
-  "version": "0.4.0",
+  "id": "fm-file-manager",
+  "name": "FM - Obsidian File Manager",
+  "version": "0.5.0",
   "minAppVersion": "1.4.0",
   "main": "main.js",
   "css": ["styles.css"],
-  "description": "Keyboard-driven file navigator with ranger-style hjkl navigation. Browse files efficiently with vim-inspired shortcuts.",
+  "description": "Complete file manager with keyboard navigation, copy/move/delete operations, and vim-style hjkl shortcuts.",
   "author": "punassuming",
   "authorUrl": "https://github.com/punassuming/obsidian-ranger",
   "isDesktopOnly": true
