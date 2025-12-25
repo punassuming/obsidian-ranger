@@ -1,6 +1,6 @@
 # Obsidian Community Plugin Submission Guide
 
-This guide explains how to submit Ranger FM to the Obsidian Community Plugins directory.
+This guide explains how to submit FM - Obsidian File Manager to the Obsidian Community Plugins directory.
 
 ## Prerequisites Checklist
 
@@ -19,18 +19,18 @@ Before submitting, ensure you have:
 
 **This is a required step before submission.**
 
-Take a screenshot of Ranger FM in action and save it as `screenshot.png` in the root directory. This helps users see what the plugin looks like before installing.
+Take a screenshot of FM in action and save it as `screenshot.png` in the root directory. This helps users see what the plugin looks like before installing.
 
 ### 1.2 Verify manifest.json
 
 Your `manifest.json` should contain:
 ```json
 {
-  "id": "ranger-fm",
-  "name": "Ranger FM",
-  "version": "0.4.0",
+  "id": "fm-file-manager",
+  "name": "FM - Obsidian File Manager",
+  "version": "0.5.0",
   "minAppVersion": "1.4.0",
-  "description": "Keyboard-driven file navigator with ranger-style hjkl navigation...",
+  "description": "Complete file manager with keyboard navigation, copy/move/delete operations, and vim-style hjkl shortcuts.",
   "author": "punassuming",
   "authorUrl": "https://github.com/punassuming/obsidian-ranger",
   "isDesktopOnly": true
@@ -42,16 +42,16 @@ Your `manifest.json` should contain:
 ### 2.1 Tag the Release
 
 ```bash
-git tag -a 0.4.0 -m "Release v0.4.0 - UI improvements and community submission"
-git push origin 0.4.0
+git tag -a 0.5.0 -m "Release v0.5.0 - Complete file manager with copy/move operations"
+git push origin 0.5.0
 ```
 
 ### 2.2 Create Release on GitHub
 
 1. Go to your repository on GitHub
 2. Click "Releases" → "Create a new release"
-3. Select tag: `0.4.0`
-4. Release title: `v0.4.0`
+3. Select tag: `0.5.0`
+4. Release title: `v0.5.0`
 5. Description: Brief changelog of improvements
 6. Upload the following files as release assets:
    - `main.js`
@@ -70,10 +70,10 @@ Add your plugin entry to the end of the array in `community-plugins.json`:
 
 ```json
 {
-  "id": "ranger-fm",
-  "name": "Ranger FM",
+  "id": "fm-file-manager",
+  "name": "FM - Obsidian File Manager",
   "author": "punassuming",
-  "description": "Keyboard-driven file navigator with ranger-style hjkl navigation. Browse files efficiently with vim-inspired shortcuts.",
+  "description": "Complete file manager with keyboard navigation, copy/move/delete operations, and vim-style hjkl shortcuts.",
   "repo": "punassuming/obsidian-ranger"
 }
 ```
@@ -88,7 +88,7 @@ Add your plugin entry to the end of the array in `community-plugins.json`:
 
 1. Commit your changes to your fork
 2. Create a PR to `obsidianmd/obsidian-releases`
-3. Title: "Add Ranger FM plugin"
+3. Title: "Add FM - Obsidian File Manager plugin"
 4. Fill out the PR template completely:
    - Link to your repository
    - Confirm you've followed all guidelines
@@ -101,19 +101,20 @@ Add your plugin entry to the end of the array in `community-plugins.json`:
 ## Plugin Information
 
 **Repository:** https://github.com/punassuming/obsidian-ranger
-**Latest Release:** v0.4.0
+**Latest Release:** v0.5.0
 
 ## Description
 
-Ranger FM is a keyboard-driven file navigator inspired by the ranger file manager. It provides vim-style hjkl navigation for efficiently browsing vault files with real-time preview and search capabilities.
+FM - Obsidian File Manager is a complete file management solution with keyboard navigation. It provides vim-style hjkl shortcuts for efficient file browsing along with copy, move, and delete operations, all within Obsidian.
 
 ## Key Features
 
 - Vim-style hjkl navigation
+- File operations: copy (yy), move (dd), paste (p)
 - Quick search with `/` key
 - Real-time markdown preview
 - Full keyboard control
-- Context menus for file operations
+- Enhanced context menus
 
 ## Screenshots
 

@@ -6,7 +6,7 @@ This document describes the visual appearance of the improved UI. Since we canno
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Ranger FM                                                        │
+│ FM - Obsidian File Manager                                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -285,4 +285,4 @@ All styling uses:
 
 ---
 
-This mockup represents the visual improvements made to Ranger FM v0.4.0. The actual appearance will match your Obsidian theme's colors while maintaining the enhanced structure, spacing, and visual hierarchy described here.
+This mockup represents the visual improvements made to FM - Obsidian File Manager. The actual appearance will match your Obsidian theme's colors while maintaining the enhanced structure, spacing, and visual hierarchy described here.

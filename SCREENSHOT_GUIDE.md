@@ -1,4 +1,4 @@
-# Screenshot Guide for Ranger FM
+# Screenshot Guide for FM - Obsidian File Manager
 
 ## Screenshots Needed for Documentation
 
@@ -29,11 +29,11 @@ Show:
 
 1. **Install the Plugin in Obsidian:**
    - Copy `main.js`, `manifest.json`, and `styles.css` to:
-     `<your-vault>/.obsidian/plugins/ranger-fm/`
+     `<your-vault>/.obsidian/plugins/fm-file-manager/`
    - Enable the plugin in Obsidian Settings
 
-2. **Open Ranger FM:**
-   - Press `-` (hyphen key) to open Ranger FM
+2. **Open FM:**
+   - Press `-` (hyphen key) to open FM
    - Navigate to a folder with good visual examples
 
 3. **Capture Screenshots:**

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes all improvements made to Ranger FM for better UI/UX and preparation for Obsidian community plugin submission.
+This document summarizes all improvements made to FM - Obsidian File Manager for better UI/UX and preparation for Obsidian community plugin submission.
 
 ## What Was Done
 
@@ -177,24 +177,6 @@ This document summarizes all improvements made to Ranger FM for better UI/UX and
 
 ---
 
-### 5. Naming & Branding ✅
-
-**Decision: Keep "Ranger FM"**
-- Well-established name
-- Clearly indicates inspiration (ranger file manager)
-- "FM" clarifies it's a file manager/navigator
-- Easy to search and remember
-- No conflicts with existing plugins
-
-**Description Strategy:**
-- Emphasizes "keyboard-driven" (key feature)
-- Mentions "vim-inspired" (appeals to target users)
-- Includes "ranger-style hjkl" (specific, searchable)
-- Under 250 characters (community requirement)
-- Clear and descriptive
-
----
-
 ## Submission Readiness Checklist
 
 ### Required Items ✅
@@ -321,12 +303,12 @@ This document summarizes all improvements made to Ranger FM for better UI/UX and
 
 ## Conclusion
 
-Ranger FM is now:
+FM - Obsidian File Manager is now:
 - Visually polished and professional
 - Fully documented for users and contributors
 - Ready for Obsidian community submission
 - Easy to maintain and extend
 
-The plugin provides a keyboard-driven, vim-inspired file navigation experience that feels native to Obsidian while maintaining its unique ranger-inspired workflow.
+The plugin provides a keyboard-driven, vim-inspired file navigation and management experience that feels native to Obsidian.
 
 **All that remains is adding a screenshot and submitting to the community!** 🚀
