@@ -140,6 +140,7 @@
   max-width: 100%;
   height: auto;
   display: block;
+  margin: auto;
 }
 .fm-fm .fm-preview-error {
   color: var(--text-error);

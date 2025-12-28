@@ -64,6 +64,9 @@ function setEntryIcon(el, entry) {
 
 const VIEW_TYPE_FM = 'fm-file-manager-view';
 
+// Image file extensions for preview
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+
 class FmView extends ItemView {
   constructor(leaf, app, plugin) {
     super(leaf);
@@ -865,8 +868,7 @@ class FmView extends ItemView {
 
     // Check if it's an image file
     const ext = entry.extension.toLowerCase();
-    const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
-    if (imageExtensions.includes(ext)) {
+    if (IMAGE_EXTENSIONS.includes(ext)) {
       if (!this.showPreview) return;
       try {
         const img = this.previewEl.createEl('img');
