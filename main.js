@@ -1,11 +1,11 @@
 /*
-  FM - Obsidian File Manager
-  A complete file manager with keyboard navigation and file operations
+  Obsidian Ranger - File navigator with keyboard navigation
   
   Features:
     - Vim-style hjkl navigation
     - Quick search with / key (filter mode with highlighted matches)
     - Real-time markdown preview pane
+    - Image preview support
     - File details with metadata
     - File operations: copy, move, delete
     - Context menus for file operations
@@ -25,7 +25,7 @@
     dd: cut (move) file/folder
     p: paste
   
-  Command: Open FM (default hotkey '-')
+  Command: Open Obsidian Ranger (default hotkey '-')
 */
 
 const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
@@ -91,7 +91,7 @@ class FmView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE_FM; }
-  getDisplayText() { return 'FM - File Manager'; }
+  getDisplayText() { return 'Obsidian Ranger'; }
 
   async setState(state) {
     this.prevFilePath = state?.prevFile || null;
@@ -863,6 +863,21 @@ class FmView extends ItemView {
       meta.setText(parts.join(' • '));
     }
 
+    // Check if it's an image file
+    const ext = entry.extension.toLowerCase();
+    const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+    if (imageExtensions.includes(ext)) {
+      if (!this.showPreview) return;
+      try {
+        const img = this.previewEl.createEl('img');
+        img.src = this.app.vault.getResourcePath(entry);
+        img.alt = entry.name;
+      } catch (e) {
+        this.previewEl.createEl('div', { cls: 'fm-preview-error', text: 'Unable to load image.' });
+      }
+      return;
+    }
+
     // Render preview (truncate large files)
     const token = ++this.previewToken;
     if (!this.showPreview) return;
@@ -899,7 +914,7 @@ class FmPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-fm-file-manager',
-      name: 'Open FM - File Manager',
+      name: 'Open Obsidian Ranger',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
@@ -931,7 +946,7 @@ class FmSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h3', { text: 'FM - File Manager Settings' });
+    containerEl.createEl('h3', { text: 'Obsidian Ranger Settings' });
 
     new Setting(containerEl)
       .setName('Show preview by default')
