@@ -91,6 +91,8 @@ class FmView extends ItemView {
     // Clipboard for copy/move operations
     this.clipboard = null;
     this.clipboardOperation = null; // 'copy' or 'cut'
+    // History: remember last selected file in each folder
+    this.folderHistory = new Map(); // folderPath -> entryPath
   }
 
   getViewType() { return VIEW_TYPE_FM; }
@@ -283,6 +285,14 @@ class FmView extends ItemView {
       const i = this.entries.findIndex(e => e.path === this.preselectPath);
       if (i >= 0) this.selectedIndex = i;
       this.preselectPath = null;
+    } else {
+      // Check folder history to restore previous selection
+      const folderPath = this.currentFolder.path;
+      const rememberedPath = this.folderHistory.get(folderPath);
+      if (rememberedPath) {
+        const i = this.entries.findIndex(e => e.path === rememberedPath);
+        if (i >= 0) this.selectedIndex = i;
+      }
     }
     if (this.selectedIndex >= this.entries.length) this.selectedIndex = Math.max(0, this.entries.length - 1);
     if (this.selectedIndex < 0) this.selectedIndex = 0;
@@ -330,6 +340,9 @@ class FmView extends ItemView {
     });
 
     this.renderPreview();
+    
+    // Scroll selected item into view
+    this.scrollToSelected();
   }
 
   renderSelectionOnly() {
@@ -341,14 +354,34 @@ class FmView extends ItemView {
     });
   }
 
+  scrollToSelected() {
+    // Scroll the selected item into view
+    const nodes = this.listEl.querySelectorAll('.fm-item');
+    const node = nodes[this.selectedIndex];
+    if (node) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    }
+  }
+
   move(delta) {
     if (!this.entries.length) return;
     this.selectedIndex = (this.selectedIndex + delta + this.entries.length) % this.entries.length;
     this.renderSelectionOnly();
     // Keep selected item in view
-    const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+    const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
     if (node) node.scrollIntoView({ block: 'nearest' });
     this.renderPreview();
+    // Save current selection to history
+    this.saveCurrentSelection();
+  }
+
+  saveCurrentSelection() {
+    // Save the current selected entry to folder history
+    if (this.entries.length > 0 && this.selectedIndex >= 0 && this.selectedIndex < this.entries.length) {
+      const folderPath = this.currentFolder.path;
+      const selectedEntry = this.entries[this.selectedIndex];
+      this.folderHistory.set(folderPath, selectedEntry.path);
+    }
   }
 
   up() {
@@ -367,6 +400,8 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
     if (entry instanceof TFolder) {
+      // Save current selection before entering folder
+      this.saveCurrentSelection();
       this.currentFolder = entry;
       this.selectedIndex = 0;
       // Clear search on folder change
@@ -460,7 +495,7 @@ class FmView extends ItemView {
       });
     });
     // Keep selected item in view
-    const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+    const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
     if (node) node.scrollIntoView({ block: 'nearest' });
     this.renderPreview();
   }
@@ -773,7 +808,7 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
     this.selectedIndex = 0;
     this.renderSelectionOnly();
-    const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+    const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
     if (node) node.scrollIntoView({ block: 'nearest' });
     this.renderPreview();
   }
@@ -782,7 +817,7 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
     this.selectedIndex = this.entries.length - 1;
     this.renderSelectionOnly();
-    const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+    const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
     if (node) node.scrollIntoView({ block: 'nearest' });
     this.renderPreview();
   }
@@ -805,7 +840,7 @@ class FmView extends ItemView {
     if (idxInEntries >= 0) {
       this.selectedIndex = idxInEntries;
       this.renderSelectionOnly();
-      const node = this.listEl.querySelectorAll('.ranger-item')[this.selectedIndex];
+      const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
       if (node) node.scrollIntoView({ block: 'nearest' });
       this.renderPreview();
     }
