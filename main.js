@@ -62,7 +62,7 @@ function setEntryIcon(el, entry) {
   }
 }
 
-const VIEW_TYPE_FM = 'fm-file-manager-view';
+const VIEW_TYPE_FM = 'ranger-file-manager-view';
 
 // Image file extensions for preview
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
