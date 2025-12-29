@@ -1,5 +1,5 @@
 /*
-  Obsidian Ranger - File navigator with keyboard navigation
+  File Nav - Ranger for Obsidian - File navigator with keyboard navigation
   
   Features:
     - Vim-style hjkl navigation
@@ -25,7 +25,7 @@
     dd: cut (move) file/folder
     p: paste
   
-  Command: Open Obsidian Ranger (default hotkey '-')
+  Command: Open File Nav - Ranger for Obsidian (default hotkey '-')
 */
 
 const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
@@ -62,7 +62,7 @@ function setEntryIcon(el, entry) {
   }
 }
 
-const VIEW_TYPE_FM = 'fm-file-manager-view';
+const VIEW_TYPE_FM = 'file-nav-ranger-view';
 
 // Image file extensions for preview
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
@@ -88,6 +88,10 @@ class FmView extends ItemView {
     this._suppressEnterUntil = 0;
     this.showPreview = true;
     this.showDetails = true;
+    this.showHiddenFiles = true;
+    this.showHiddenFolders = true;
+    this.showFileExtensions = true;
+    this.sortFoldersFirst = true;
     // Clipboard for copy/move operations
     this.clipboard = null;
     this.clipboardOperation = null; // 'copy' or 'cut'
@@ -96,7 +100,7 @@ class FmView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE_FM; }
-  getDisplayText() { return 'Obsidian Ranger'; }
+  getDisplayText() { return 'File Nav - Ranger for Obsidian'; }
 
   async setState(state) {
     this.prevFilePath = state?.prevFile || null;
@@ -120,6 +124,10 @@ class FmView extends ItemView {
     if (s) {
       this.showPreview = !!s.showPreview;
       this.showDetails = !!s.showDetails;
+      this.showHiddenFiles = !!s.showHiddenFiles;
+      this.showHiddenFolders = !!s.showHiddenFolders;
+      this.showFileExtensions = !!s.showFileExtensions;
+      this.sortFoldersFirst = !!s.sortFoldersFirst;
     }
     const fileFromPath = (p) => p ? this.app.vault.getAbstractFileByPath(p) : null;
     const startFile = fileFromPath(this.selectFilePath);
@@ -268,12 +276,31 @@ class FmView extends ItemView {
     const dirs = [];
     const files = [];
     for (const child of children) {
-      if (child instanceof TFolder) dirs.push(child);
-      else if (child instanceof TFile) files.push(child);
+      if (child instanceof TFolder) {
+        if (!this.showHiddenFolders && child.name.startsWith('.')) continue;
+        dirs.push(child);
+      } else if (child instanceof TFile) {
+        if (!this.showHiddenFiles && child.name.startsWith('.')) continue;
+        files.push(child);
+      }
     }
-    dirs.sort((a, b) => a.name.localeCompare(b.name));
-    files.sort((a, b) => a.name.localeCompare(b.name));
-    return [...dirs, ...files];
+    if (this.sortFoldersFirst) {
+      dirs.sort((a, b) => a.name.localeCompare(b.name));
+      files.sort((a, b) => a.name.localeCompare(b.name));
+      return [...dirs, ...files];
+    }
+    return [...dirs, ...files].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  getEntryLabel(entry) {
+    if (entry instanceof TFile && !this.showFileExtensions) {
+      return entry.basename;
+    }
+    return entry.name;
+  }
+
+  getEntrySearchName(entry) {
+    return this.getEntryLabel(entry);
   }
 
   render() {
@@ -317,7 +344,7 @@ class FmView extends ItemView {
       setEntryIcon(icon, entry);
       icon.setAttr('aria-hidden', 'true');
       const nameEl = item.createEl('span', { cls: 'fm-name' });
-      nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
+      nameEl.innerHTML = this.renderNameWithHighlight(this.getEntryLabel(entry), this.searchQuery);
 
       // Mouse support - click to select
       item.addEventListener('click', () => {
@@ -456,9 +483,9 @@ class FmView extends ItemView {
     // If current selection doesn't match, move to next match from top
     const query = this.searchQuery.toLowerCase();
     const cur = this.entries[this.selectedIndex];
-    const curMatches = query && cur ? cur.name.toLowerCase().includes(query) : false;
+    const curMatches = query && cur ? this.getEntrySearchName(cur).toLowerCase().includes(query) : false;
     if (query && !curMatches) {
-      const next = this.entries.findIndex(e => e.name.toLowerCase().includes(query));
+      const next = this.entries.findIndex(e => this.getEntrySearchName(e).toLowerCase().includes(query));
       if (next >= 0) this.selectedIndex = next;
     }
 
@@ -476,7 +503,7 @@ class FmView extends ItemView {
       const icon = item.createEl('span', { cls: 'fm-icon' });
       setEntryIcon(icon, entry);
       const nameEl = item.createEl('span', { cls: 'fm-name' });
-      nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
+      nameEl.innerHTML = this.renderNameWithHighlight(this.getEntryLabel(entry), this.searchQuery);
       // Mouse support - click to select
       item.addEventListener('click', () => {
         if (this.selectedIndex !== idx) {
@@ -502,7 +529,7 @@ class FmView extends ItemView {
 
   filterEntries(query) {
     const q = query.toLowerCase();
-    return this.allEntries.filter((e) => e.name.toLowerCase().includes(q));
+    return this.allEntries.filter((e) => this.getEntrySearchName(e).toLowerCase().includes(q));
   }
 
   /**
@@ -937,12 +964,19 @@ class FmView extends ItemView {
 const DEFAULT_SETTINGS = {
   showPreview: true,
   showDetails: true,
+  showHiddenFiles: true,
+  showHiddenFolders: true,
+  showFileExtensions: true,
+  sortFoldersFirst: true,
 };
 
 class FmPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    if (this.app.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      this.app.viewRegistry.unregisterView(VIEW_TYPE_FM);
+    }
     this.registerView(
       VIEW_TYPE_FM,
       (leaf) => new FmView(leaf, this.app, this)
@@ -952,7 +986,7 @@ class FmPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-fm-file-manager',
-      name: 'Open Obsidian Ranger',
+      name: 'Open File Nav - Ranger for Obsidian',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
@@ -966,6 +1000,16 @@ class FmPlugin extends Plugin {
         this.app.workspace.revealLeaf(leaf);
       },
     });
+  }
+
+  onunload() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    for (const leaf of leaves) {
+      leaf.setViewState({ type: 'empty' });
+    }
+    if (this.app.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      this.app.viewRegistry.unregisterView(VIEW_TYPE_FM);
+    }
   }
 
   async loadSettings() {
@@ -984,7 +1028,7 @@ class FmSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h3', { text: 'Obsidian Ranger Settings' });
+    containerEl.createEl('h3', { text: 'File Nav - Ranger for Obsidian Settings' });
 
     new Setting(containerEl)
       .setName('Show preview by default')
@@ -1020,6 +1064,66 @@ class FmSettingTab extends PluginSettingTab {
             if (v) view.detailsEl.removeClass('is-hidden'); else view.detailsEl.addClass('is-hidden');
             view.renderPreview();
           }
+        }
+      }));
+
+    containerEl.createEl('h4', { text: 'File options' });
+
+    new Setting(containerEl)
+      .setName('Show file extensions')
+      .setDesc('Display file extensions in the file list')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.showFileExtensions).onChange(async (v) => {
+        this.plugin.settings.showFileExtensions = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.showFileExtensions = v;
+          view.render();
+        }
+      }));
+
+    new Setting(containerEl)
+      .setName('Show hidden files')
+      .setDesc('Include dotfiles (files starting with ".")')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.showHiddenFiles).onChange(async (v) => {
+        this.plugin.settings.showHiddenFiles = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.showHiddenFiles = v;
+          view.render();
+        }
+      }));
+
+    containerEl.createEl('h4', { text: 'Folder options' });
+
+    new Setting(containerEl)
+      .setName('Show hidden folders')
+      .setDesc('Include folders starting with "."')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.showHiddenFolders).onChange(async (v) => {
+        this.plugin.settings.showHiddenFolders = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.showHiddenFolders = v;
+          view.render();
+        }
+      }));
+
+    new Setting(containerEl)
+      .setName('Group folders first')
+      .setDesc('List folders before files when sorting')
+      .addToggle((t) => t.setValue(!!this.plugin.settings.sortFoldersFirst).onChange(async (v) => {
+        this.plugin.settings.sortFoldersFirst = v;
+        await this.plugin.saveSettings();
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+        for (const leaf of leaves) {
+          const view = leaf.view;
+          view.sortFoldersFirst = v;
+          view.render();
         }
       }));
   }

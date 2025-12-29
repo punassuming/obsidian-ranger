@@ -1,8 +1,8 @@
-# FM - Obsidian File Manager
+# File Nav - Ranger for Obsidian
 
 A complete file manager for Obsidian with keyboard navigation and file operations. Navigate your vault efficiently with vim-inspired shortcuts and manage files with copy, move, and delete operations.
 
-> **Note:** Screenshot coming soon! See [SCREENSHOT_GUIDE.md](SCREENSHOT_GUIDE.md) for how to capture plugin screenshots.
+> **Note:** Screenshot coming soon!
 
 ## Features
 
@@ -21,22 +21,22 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 
 1. Open Obsidian Settings
 2. Navigate to Community Plugins and disable Safe Mode
-3. Click Browse and search for "FM - Obsidian File Manager"
+3. Click Browse and search for "File Nav - Ranger for Obsidian"
 4. Click Install, then Enable
 
 ### Manual Installation
 
 1. Download the latest release from [GitHub Releases](https://github.com/punassuming/obsidian-ranger/releases)
-2. Extract files to your vault's `.obsidian/plugins/fm-file-manager/` directory
+2. Extract files to your vault's `.obsidian/plugins/file-nav-ranger/` directory
 3. Reload Obsidian
 4. Enable the plugin in Settings → Community Plugins
 
 ## Usage
 
-### Opening FM
+### Opening File Nav - Ranger for Obsidian
 
-- Press `-` (hyphen) to open FM in the current pane
-- Or use Command Palette: "Open FM - File Manager"
+- Press `-` (hyphen) to open File Nav - Ranger for Obsidian in the current pane
+- Or use Command Palette: "Open File Nav - Ranger for Obsidian"
 
 ### Keyboard Shortcuts
 
@@ -54,7 +54,7 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `dd` | Cut file or folder (for moving) |
 | `p` | Paste copied/cut item |
 | `zp` | Toggle preview pane |
-| `q` / `Esc` | Close FM (or exit search) |
+| `q` / `Esc` | Close File Nav - Ranger for Obsidian (or exit search) |
 
 ### Search Mode
 
@@ -91,10 +91,20 @@ Right-click on any file or folder for quick actions:
 
 ## Settings
 
-Access plugin settings via Settings → FM - File Manager:
+Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 
 - **Show preview by default**: Enable/disable the markdown preview panel
 - **Show details by default**: Enable/disable the file/folder details panel
+- **Show file extensions**: Toggle filename extensions in the list
+- **Show hidden files**: Include dotfiles in file results
+- **Show hidden folders**: Include dotfolders in folder results
+- **Group folders first**: Control folder-first sorting
+
+## Documentation
+
+- [Quick reference](docs/quick-reference.md)
+- [Changelog](docs/changelog.md)
+- [Contributing](docs/contributing.md)
 
 ## Development
 
@@ -130,20 +140,7 @@ Created by the Obsidian community.
 
 ## Changelog
 
-### 0.5.0
-- **Renamed** to FM - Obsidian File Manager
-- **Added** file copy operation with `yy` keyboard shortcut
-- **Added** file move (cut) operation with `dd` keyboard shortcut
-- **Added** paste operation with `p` keyboard shortcut
-- **Enhanced** context menus with copy/cut options for files and folders
-- **Improved** status bar to show file operation shortcuts
-
-### 0.4.0
-- Improved search functionality
-- Added preview pane toggle (zp)
-- Enhanced keyboard navigation
-
----
+See [docs/changelog.md](docs/changelog.md) for release history.
 
 If you find this plugin useful, consider:
 - ⭐ Starring the repository on GitHub
