@@ -14,7 +14,6 @@
   padding: var(--size-2-2) var(--size-4-2);
   background: transparent;
   border-radius: var(--radius-m);
-  border-left: 2px solid var(--text-muted);
   font-weight: var(--font-normal);
 }
 .fm-fm .fm-search { 
@@ -123,7 +122,6 @@
   padding: var(--size-2-2) var(--size-4-2);
   background: transparent;
   border-radius: var(--radius-m);
-  border-left: 2px solid var(--text-muted);
 }
 .fm-fm .fm-details-title {
   font-weight: var(--font-semibold);

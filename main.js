@@ -334,7 +334,7 @@ class FmView extends ItemView {
 
   renderSelectionOnly() {
     // Update CSS class only to avoid full rerender flicker
-    const nodes = this.listEl.querySelectorAll('.ranger-item');
+    const nodes = this.listEl.querySelectorAll('.fm-item');
     nodes.forEach((n, i) => {
       if (i === this.selectedIndex) n.addClass('is-selected');
       else n.removeClass('is-selected');
