@@ -3,11 +3,13 @@
   
   Features:
     - Vim-style hjkl navigation
-    - Quick search with / key (filter mode with highlighted matches)
+    - Quick search with / key (highlighted matches)
+    - Filter list with f key
     - Real-time markdown preview pane
     - Image preview support
     - File details with metadata
-    - File operations: copy, move, delete
+    - File operations: copy, move, delete, rename, duplicate
+    - Quick create notes and folders
     - Context menus for file operations
     - Customizable preview and details panels
   
@@ -15,12 +17,17 @@
     j/k: move selection down/up
     l / Enter: open file or enter folder
     h: go up to parent folder
-    /: toggle search bar (type to filter)
+    /: toggle search bar (type to highlight)
+    f: filter list to matching entries
     n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
-    zp: toggle preview pane
+    zd: toggle preview pane
+    zp: toggle rendered/text preview
     q or Esc: exit search or close view
+    a / A: new note / new folder
+    r: rename selected item
+    D: duplicate selected item
     yy: copy file/folder
     dd: cut (move) file/folder
     p: paste
@@ -78,6 +85,7 @@ class FmView extends ItemView {
     this.selectedIndex = 0;
     this.searchActive = false;
     this.searchQuery = '';
+    this.filterQuery = '';
     this.previewToken = 0;
     this.prevFilePath = null;
     this.startFolderPath = null;
@@ -92,15 +100,39 @@ class FmView extends ItemView {
     this.showHiddenFolders = true;
     this.showFileExtensions = true;
     this.sortFoldersFirst = true;
+    this.previewMode = 'rendered';
     // Clipboard for copy/move operations
     this.clipboard = null;
     this.clipboardOperation = null; // 'copy' or 'cut'
     // History: remember last selected file in each folder
     this.folderHistory = new Map(); // folderPath -> entryPath
+    // Search/filter mode tracking
+    this.searchMode = null; // 'search' or 'filter'
+    this.filterActive = false;
   }
 
   getViewType() { return VIEW_TYPE_FM; }
-  getDisplayText() { return 'File Nav - Ranger for Obsidian'; }
+  getDisplayText() { return this.formatWindowTitle(this.getWindowTitlePath()); }
+
+  formatWindowTitle(path) {
+    return `file: ${path || '/'}`;
+  }
+
+  getWindowTitlePath() {
+    const entry = this.entries?.[this.selectedIndex];
+    return entry?.path || this.currentFolder?.path || '/';
+  }
+
+  updateWindowTitle() {
+    const title = this.formatWindowTitle(this.getWindowTitlePath());
+    if (this.leaf?.setTitle) {
+      this.leaf.setTitle(title);
+    } else if (this.setTitle) {
+      this.setTitle(title);
+    } else if (this.leaf?.tabHeaderInnerTitleEl) {
+      this.leaf.tabHeaderInnerTitleEl.textContent = title;
+    }
+  }
 
   async setState(state) {
     this.prevFilePath = state?.prevFile || null;
@@ -149,6 +181,12 @@ class FmView extends ItemView {
     this.registerDomEvent(this.searchInputEl, 'input', () => this.applySearchFilter());
     this.registerDomEvent(this.searchInputEl, 'keydown', (evt) => {
       const k = evt.key;
+      if (k === '/' && this.searchMode === 'search') {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.clearSearchInput();
+        return;
+      }
       if (k === 'Escape') {
         evt.preventDefault();
         evt.stopPropagation();
@@ -213,7 +251,7 @@ class FmView extends ItemView {
         return; // ignore Enter immediately after closing search
       }
 
-      if (["j","k","h","l","/","Enter","Escape","q","g","G","n","N","z","y","d","p"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
+      if (["j","k","h","l","/","f","a","A","r","D","Enter","Escape","q","g","G","n","N","z","y","d","p"].includes(k) || (evt.ctrlKey && (k === 'd' || k === 'u'))) {
         evt.preventDefault();
         evt.stopPropagation();
       }
@@ -227,7 +265,14 @@ class FmView extends ItemView {
       else if (k === 'k') this.move(-1);
       else if (k === 'l' || k === 'Enter') this.activate();
       else if (k === 'h') this.up();
-      else if (k === '/') this.enterSearchMode();
+      else if (k === '/') {
+        if (this.searchActive && this.searchMode === 'search') {
+          this.clearSearchInput();
+        } else {
+          this.enterSearchMode('search');
+        }
+      }
+      else if (k === 'f') this.enterSearchMode('filter');
       else if (k === 'g') this.handleG();
       else if (k === 'G' || (k === 'g' && evt.shiftKey)) this.jumpBottom();
       else if (k === 'n') this.cycleSearch(1);
@@ -237,6 +282,10 @@ class FmView extends ItemView {
       else if (k === 'y') this.handleY();
       else if (k === 'd') this.handleD();
       else if (k === 'p') this.handleP();
+      else if (k === 'a') this.createNewNote();
+      else if (k === 'A') this.createNewFolder();
+      else if (k === 'r') this.renameEntry();
+      else if (k === 'D') this.duplicateEntry();
     });
   }
 
@@ -307,6 +356,7 @@ class FmView extends ItemView {
     // Update entries and clamp selection (no filtering; quick-select mode)
     this.allEntries = this.getFolderEntries(this.currentFolder);
     this.entries = this.allEntries;
+    this.updateEntriesForFilter();
     // honor a pending file selection
     if (this.preselectPath) {
       const i = this.entries.findIndex(e => e.path === this.preselectPath);
@@ -328,45 +378,7 @@ class FmView extends ItemView {
     const path = this.currentFolder.path === '/' ? '/' : this.currentFolder.path;
     this.pathEl.setText(path);
 
-    // Render list
-    this.listEl.empty();
-    if (this.entries.length === 0) {
-      this.listEl.createEl('div', { cls: 'fm-empty', text: '(empty)' });
-      this.renderPreview();
-      return;
-    }
-
-    this.entries.forEach((entry, idx) => {
-      const item = this.listEl.createEl('div', { cls: 'fm-item' });
-      if (idx === this.selectedIndex) item.addClass('is-selected');
-
-      const icon = item.createEl('span', { cls: 'fm-icon' });
-      setEntryIcon(icon, entry);
-      icon.setAttr('aria-hidden', 'true');
-      const nameEl = item.createEl('span', { cls: 'fm-name' });
-      nameEl.innerHTML = this.renderNameWithHighlight(this.getEntryLabel(entry), this.searchQuery);
-
-      // Mouse support - click to select
-      item.addEventListener('click', () => {
-        if (this.selectedIndex !== idx) {
-          this.selectedIndex = idx;
-          this.renderSelectionOnly();
-          this.renderPreview();
-        }
-      });
-      item.addEventListener('dblclick', () => {
-        this.selectedIndex = idx;
-        this.activate();
-      });
-
-      // Context menu
-      item.addEventListener('contextmenu', (evt) => {
-        evt.preventDefault();
-        this.openContextMenu(evt, entry);
-      });
-    });
-
-    this.renderPreview();
+    this.renderList();
     
     // Scroll selected item into view
     this.scrollToSelected();
@@ -379,6 +391,7 @@ class FmView extends ItemView {
       if (i === this.selectedIndex) n.addClass('is-selected');
       else n.removeClass('is-selected');
     });
+    this.updateWindowTitle();
   }
 
   scrollToSelected() {
@@ -452,23 +465,45 @@ class FmView extends ItemView {
   }
 
   // --- Search ---
-  enterSearchMode() {
+  enterSearchMode(mode) {
+    const isRepeat = this.searchActive && this.searchMode === mode;
     this.searchActive = true;
+    this.searchMode = mode;
+    if (mode === 'filter') {
+      this.filterActive = true;
+    }
     this.searchWrapEl.removeClass('is-hidden');
-    this.searchInputEl.value = this.searchQuery || '';
+    this.searchInputEl.value = mode === 'filter' ? (this.filterQuery || '') : (this.searchQuery || '');
+    if (isRepeat) {
+      this.clearSearchInput();
+      return;
+    }
     this.searchInputEl.focus();
     this.applySearchFilter();
   }
 
   exitSearchMode(rerender = true, clear = true) {
     // Persist last search query for n/N cycling
-    this.lastSearchQuery = (this.searchInputEl.value || '').trim() || this.lastSearchQuery || '';
+    const rawValue = (this.searchInputEl.value || '').trim();
+    if (this.searchMode === 'search') {
+      this.lastSearchQuery = rawValue || this.lastSearchQuery || '';
+    }
     this.searchActive = false;
+    const mode = this.searchMode;
+    this.searchMode = null;
     if (clear) {
-      this.searchQuery = '';
+      if (mode === 'search') this.searchQuery = '';
+      if (mode === 'filter') {
+        this.filterQuery = '';
+        this.filterActive = false;
+      }
       this.searchInputEl.value = '';
     } else {
-      this.searchQuery = (this.searchInputEl.value || '').trim();
+      if (mode === 'search') this.searchQuery = rawValue;
+      if (mode === 'filter') {
+        this.filterQuery = rawValue;
+        this.filterActive = !!this.filterQuery;
+      }
     }
     this.searchWrapEl.addClass('is-hidden');
     if (this.listEl) this.listEl.focus({ preventScroll: true });
@@ -477,33 +512,78 @@ class FmView extends ItemView {
 
   applySearchFilter() {
     // Quick-select mode: do not filter; highlight matches and jump selection
-    this.searchQuery = (this.searchInputEl.value || '').trim();
-    if (this.searchQuery) this.lastSearchQuery = this.searchQuery;
-
-    // If current selection doesn't match, move to next match from top
-    const query = this.searchQuery.toLowerCase();
-    const cur = this.entries[this.selectedIndex];
-    const curMatches = query && cur ? this.getEntrySearchName(cur).toLowerCase().includes(query) : false;
-    if (query && !curMatches) {
-      const next = this.entries.findIndex(e => this.getEntrySearchName(e).toLowerCase().includes(query));
-      if (next >= 0) this.selectedIndex = next;
+    const query = (this.searchInputEl.value || '').trim();
+    const currentPath = this.entries[this.selectedIndex]?.path;
+    if (this.searchMode === 'search') {
+      this.searchQuery = query;
+      if (this.searchQuery) this.lastSearchQuery = this.searchQuery;
+    } else if (this.searchMode === 'filter') {
+      this.filterQuery = query;
+    }
+    if (this.searchMode === 'filter') this.filterActive = true;
+    this.updateEntriesForFilter();
+    if (currentPath) {
+      const nextIndex = this.entries.findIndex((entry) => entry.path === currentPath);
+      this.selectedIndex = nextIndex >= 0 ? nextIndex : 0;
     }
 
-    // Re-render list with highlights (all items remain visible)
+    if (this.searchMode === 'search') {
+      // If current selection doesn't match, move to next match from top
+      const queryLower = this.searchQuery.toLowerCase();
+      const cur = this.entries[this.selectedIndex];
+      const curMatches = queryLower && cur ? this.getEntrySearchName(cur).toLowerCase().includes(queryLower) : false;
+      if (queryLower && !curMatches) {
+        const next = this.entries.findIndex(e => this.getEntrySearchName(e).toLowerCase().includes(queryLower));
+        if (next >= 0) this.selectedIndex = next;
+      }
+    }
+
+    this.renderList();
+    this.scrollToSelected();
+  }
+
+  filterEntries(query) {
+    const q = query.toLowerCase();
+    return this.allEntries.filter((e) => this.getEntrySearchName(e).toLowerCase().includes(q));
+  }
+
+  updateEntriesForFilter() {
+    if (this.filterActive && this.filterQuery) {
+      this.entries = this.filterEntries(this.filterQuery);
+    } else {
+      this.entries = this.allEntries;
+    }
+    if (this.selectedIndex >= this.entries.length) {
+      this.selectedIndex = Math.max(0, this.entries.length - 1);
+    }
+  }
+
+  getActiveHighlightQuery() {
+    if (this.searchMode === 'filter') return this.filterQuery;
+    if (this.searchMode === 'search') return this.searchQuery;
+    return this.searchQuery || (this.filterActive ? this.filterQuery : '');
+  }
+
+  renderList() {
     this.listEl.empty();
     if (this.entries.length === 0) {
       this.listEl.createEl('div', { cls: 'fm-empty', text: '(empty)' });
       this.previewEl.empty();
       this.detailsEl.empty();
+      this.updateWindowTitle();
       return;
     }
+    const highlightQuery = this.getActiveHighlightQuery();
     this.entries.forEach((entry, idx) => {
       const item = this.listEl.createEl('div', { cls: 'fm-item' });
       if (idx === this.selectedIndex) item.addClass('is-selected');
+
       const icon = item.createEl('span', { cls: 'fm-icon' });
       setEntryIcon(icon, entry);
+      icon.setAttr('aria-hidden', 'true');
       const nameEl = item.createEl('span', { cls: 'fm-name' });
-      nameEl.innerHTML = this.renderNameWithHighlight(this.getEntryLabel(entry), this.searchQuery);
+      nameEl.innerHTML = this.renderNameWithHighlight(this.getEntryLabel(entry), highlightQuery);
+
       // Mouse support - click to select
       item.addEventListener('click', () => {
         if (this.selectedIndex !== idx) {
@@ -516,20 +596,27 @@ class FmView extends ItemView {
         this.selectedIndex = idx;
         this.activate();
       });
+
+      // Context menu
       item.addEventListener('contextmenu', (evt) => {
         evt.preventDefault();
         this.openContextMenu(evt, entry);
       });
     });
-    // Keep selected item in view
-    const node = this.listEl.querySelectorAll('.fm-item')[this.selectedIndex];
-    if (node) node.scrollIntoView({ block: 'nearest' });
+
     this.renderPreview();
+    this.updateWindowTitle();
   }
 
-  filterEntries(query) {
-    const q = query.toLowerCase();
-    return this.allEntries.filter((e) => this.getEntrySearchName(e).toLowerCase().includes(q));
+  clearSearchInput() {
+    if (this.searchMode === 'filter') {
+      this.filterQuery = '';
+    } else {
+      this.searchQuery = '';
+    }
+    this.searchInputEl.value = '';
+    this.searchInputEl.focus();
+    this.applySearchFilter();
   }
 
   /**
@@ -587,11 +674,15 @@ class FmView extends ItemView {
       return;
     }
     this._zTimer = window.setTimeout(() => { this._zTimer = null; }, 400);
-    // Listen for the next keypress on the host to detect 'p'
+    // Listen for the next keypress on the host to detect 'p' or 'd'
     const onKey = (evt) => {
       if (!this._zTimer) return;
       const k = evt.key;
       if (k === 'p' || k === 'P') {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.togglePreviewMode();
+      } else if (k === 'd' || k === 'D') {
         evt.preventDefault();
         evt.stopPropagation();
         this.togglePreviewPane();
@@ -685,14 +776,15 @@ class FmView extends ItemView {
     const ext = file.extension;
     const baseName = file.basename;
     let counter = 1;
-    let newName = `${baseName} copy.${ext}`;
+    const extSuffix = ext ? `.${ext}` : '';
+    let newName = `${baseName} copy${extSuffix}`;
     let newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
 
     // Find available name (with safety limit)
     const MAX_ATTEMPTS = 1000;
     while (this.app.vault.getAbstractFileByPath(newPath) && counter < MAX_ATTEMPTS) {
       counter++;
-      newName = `${baseName} copy ${counter}.${ext}`;
+      newName = `${baseName} copy ${counter}${extSuffix}`;
       newPath = destFolder.path === '/' ? newName : `${destFolder.path}/${newName}`;
     }
 
@@ -766,6 +858,112 @@ class FmView extends ItemView {
     }
   }
 
+  buildChildPath(parentPath, name) {
+    return parentPath === '/' ? name : `${parentPath}/${name}`;
+  }
+
+  normalizeNoteName(name) {
+    const trimmed = name.trim().replace(/^\/+/, '');
+    if (!trimmed) return '';
+    if (!/\.[^/.]+$/.test(trimmed)) return `${trimmed}.md`;
+    return trimmed;
+  }
+
+  async createNewNote() {
+    const rawName = prompt('New note name');
+    const noteName = this.normalizeNoteName(rawName || '');
+    if (!noteName) return;
+    const path = this.buildChildPath(this.currentFolder.path, noteName);
+    if (this.app.vault.getAbstractFileByPath(path)) {
+      new Notice(`Already exists: ${noteName}`);
+      return;
+    }
+    try {
+      const file = await this.app.vault.create(path, '');
+      this.preselectPath = file.path;
+      this.render();
+      new Notice(`Created note: ${file.name}`);
+    } catch (err) {
+      new Notice(`Failed to create note: ${err.message}`);
+    }
+  }
+
+  async createNewFolder() {
+    const rawName = prompt('New folder name');
+    const folderName = (rawName || '').trim().replace(/^\/+/, '');
+    if (!folderName) return;
+    const path = this.buildChildPath(this.currentFolder.path, folderName);
+    if (this.app.vault.getAbstractFileByPath(path)) {
+      new Notice(`Already exists: ${folderName}`);
+      return;
+    }
+    try {
+      await this.app.vault.createFolder(path);
+      this.preselectPath = path;
+      this.render();
+      new Notice(`Created folder: ${folderName}`);
+    } catch (err) {
+      new Notice(`Failed to create folder: ${err.message}`);
+    }
+  }
+
+  async renameEntry() {
+    if (!this.entries.length) return;
+    const entry = this.entries[this.selectedIndex];
+    const rawName = prompt('Rename to', entry.name);
+    const newName = (rawName || '').trim();
+    if (!newName || newName === entry.name) return;
+    const parentPath = entry.parent?.path || '/';
+    const newPath = this.buildChildPath(parentPath, newName);
+    if (this.app.vault.getAbstractFileByPath(newPath)) {
+      new Notice(`Already exists: ${newName}`);
+      return;
+    }
+    try {
+      await this.app.vault.rename(entry, newPath);
+      this.preselectPath = newPath;
+      this.render();
+      new Notice(`Renamed to: ${newName}`);
+    } catch (err) {
+      new Notice(`Failed to rename: ${err.message}`);
+    }
+  }
+
+  async duplicateEntry() {
+    if (!this.entries.length) return;
+    const entry = this.entries[this.selectedIndex];
+    if (entry instanceof TFile) {
+      await this.copyFileWithNewName(entry, entry.parent || this.currentFolder);
+    } else if (entry instanceof TFolder) {
+      await this.copyFolderWithNewName(entry);
+    }
+    this.render();
+  }
+
+  async copyFolderWithNewName(folder) {
+    const parentPath = folder.parent?.path || '/';
+    let counter = 1;
+    let newName = `${folder.name} copy`;
+    let newPath = this.buildChildPath(parentPath, newName);
+    const MAX_ATTEMPTS = 1000;
+    while (this.app.vault.getAbstractFileByPath(newPath) && counter < MAX_ATTEMPTS) {
+      counter++;
+      newName = `${folder.name} copy ${counter}`;
+      newPath = this.buildChildPath(parentPath, newName);
+    }
+    if (counter >= MAX_ATTEMPTS) {
+      new Notice('Failed to find available folder name');
+      return;
+    }
+    try {
+      await this.copyFolderRecursive(folder, newPath);
+      this.preselectPath = newPath;
+      new Notice(`Duplicated folder: ${newName}`);
+    } catch (err) {
+      new Notice(`Failed to duplicate: ${err.message}`);
+    }
+  }
+
   togglePreviewPane() {
     this.showPreview = !this.showPreview;
     if (this.previewEl) {
@@ -779,6 +977,11 @@ class FmView extends ItemView {
     this.renderPreview();
   }
 
+  togglePreviewMode() {
+    this.previewMode = this.previewMode === 'rendered' ? 'text' : 'rendered';
+    this.renderPreview();
+  }
+
   openContextMenu(evt, entry) {
     const menu = new Menu(this.app);
     if (entry instanceof TFile) {
@@ -789,6 +992,15 @@ class FmView extends ItemView {
         const leaf = this.app.workspace.getLeaf(true);
         await leaf.openFile(entry);
         this.app.workspace.revealLeaf(leaf);
+      }));
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Rename (r)').setIcon('pencil').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.renameEntry();
+      }));
+      menu.addItem((i) => i.setTitle('Duplicate (D)').setIcon('files').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.duplicateEntry();
       }));
       menu.addSeparator();
       menu.addItem((i) => i.setTitle('Copy file (yy)').setIcon('copy').onClick(() => {
@@ -813,6 +1025,15 @@ class FmView extends ItemView {
       menu.addItem((i) => i.setTitle('Enter folder').setIcon('folder').onClick(() => {
         const idx = this.entries.findIndex(e => e.path === entry.path);
         if (idx >= 0) { this.selectedIndex = idx; this.activate(); }
+      }));
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('Rename (r)').setIcon('pencil').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.renameEntry();
+      }));
+      menu.addItem((i) => i.setTitle('Duplicate (D)').setIcon('files').onClick(() => {
+        this.selectedIndex = this.entries.findIndex(e => e.path === entry.path);
+        this.duplicateEntry();
       }));
       menu.addSeparator();
       menu.addItem((i) => i.setTitle('Copy folder (yy)').setIcon('copy').onClick(() => {
@@ -850,7 +1071,8 @@ class FmView extends ItemView {
   }
 
   cycleSearch(step) {
-    const query = (this.searchInputEl.value || '').trim() || this.searchQuery || this.lastSearchQuery || '';
+    const activeSearchValue = this.searchMode === 'search' ? this.searchInputEl.value : this.searchQuery;
+    const query = (activeSearchValue || '').trim() || this.searchQuery || this.lastSearchQuery || '';
     if (!query) return;
     // Cycle among matches in the full list
     const matches = this.allEntries
@@ -880,9 +1102,15 @@ class FmView extends ItemView {
       { keys: ['j', 'k'], desc: 'navigate' },
       { keys: ['h', 'l'], desc: 'parent/open' },
       { keys: ['/'], desc: 'search' },
+      { keys: ['f'], desc: 'filter' },
+      { keys: ['a', 'A'], desc: 'new note/folder' },
+      { keys: ['r'], desc: 'rename' },
+      { keys: ['D'], desc: 'duplicate' },
       { keys: ['yy'], desc: 'copy' },
       { keys: ['dd'], desc: 'cut' },
       { keys: ['p'], desc: 'paste' },
+      { keys: ['zd'], desc: 'toggle panes' },
+      { keys: ['zp'], desc: 'preview mode' },
       { keys: ['q'], desc: 'close' },
     ];
     hints.forEach((hint, idx) => {
@@ -933,6 +1161,10 @@ class FmView extends ItemView {
     const ext = entry.extension.toLowerCase();
     if (IMAGE_EXTENSIONS.includes(ext)) {
       if (!this.showPreview) return;
+      if (this.previewMode === 'text') {
+        this.previewEl.createEl('div', { cls: 'fm-preview-text', text: 'Image preview disabled in text mode.' });
+        return;
+      }
       try {
         const img = this.previewEl.createEl('img');
         img.src = this.app.vault.getResourcePath(entry);
@@ -952,8 +1184,13 @@ class FmView extends ItemView {
         text = text.slice(0, 50000) + "\n\n… (truncated)";
       }
       if (token !== this.previewToken) return; // outdated
-      await MarkdownRenderer.renderMarkdown(text, this.previewEl, entry.path, this);
-      this.previewEl.addClass('markdown-preview-view');
+      this.previewEl.removeClass('markdown-preview-view');
+      if (this.previewMode === 'text') {
+        this.previewEl.createEl('pre', { cls: 'fm-preview-text', text });
+      } else {
+        await MarkdownRenderer.renderMarkdown(text, this.previewEl, entry.path, this);
+        this.previewEl.addClass('markdown-preview-view');
+      }
     } catch (e) {
       if (token !== this.previewToken) return;
       this.previewEl.createEl('div', { cls: 'fm-preview-error', text: 'Unable to render preview.' });
@@ -989,8 +1226,8 @@ class FmPlugin extends Plugin {
       name: 'Open File Nav - Ranger for Obsidian',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        const leaf = this.app.workspace.getLeaf(activeFile ? false : true);
+    const activeFile = this.app.workspace.getActiveFile();
+    const leaf = this.app.workspace.getLeaf(false);
         const startFolder = activeFile?.parent || this.app.vault.getRoot();
         await leaf.setViewState({
           type: VIEW_TYPE_FM,
