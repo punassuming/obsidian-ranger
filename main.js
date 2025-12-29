@@ -309,8 +309,8 @@ class FmView extends ItemView {
       const nameEl = item.createEl('span', { cls: 'fm-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
 
-      // Mouse support (optional)
-      item.addEventListener('mousemove', () => {
+      // Mouse support - click to select
+      item.addEventListener('click', () => {
         if (this.selectedIndex !== idx) {
           this.selectedIndex = idx;
           this.renderSelectionOnly();
@@ -442,7 +442,8 @@ class FmView extends ItemView {
       setEntryIcon(icon, entry);
       const nameEl = item.createEl('span', { cls: 'fm-name' });
       nameEl.innerHTML = this.renderNameWithHighlight(entry.name, this.searchQuery);
-      item.addEventListener('mousemove', () => {
+      // Mouse support - click to select
+      item.addEventListener('click', () => {
         if (this.selectedIndex !== idx) {
           this.selectedIndex = idx;
           this.renderSelectionOnly();
