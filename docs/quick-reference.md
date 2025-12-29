@@ -1,7 +1,7 @@
-# FM - Obsidian File Manager - Quick Reference
+# Ranger File Manager - Quick Reference
 
-## Opening FM
-Press **`-`** (hyphen) or use Command Palette: "Open FM - File Manager"
+## Opening Ranger File Manager
+Press **`-`** (hyphen) or use Command Palette: "Open Ranger File Manager"
 
 ## Navigation
 
@@ -39,7 +39,7 @@ Press **`-`** (hyphen) or use Command Palette: "Open FM - File Manager"
 | Key | Action |
 |-----|--------|
 | `zp` | Toggle preview pane |
-| `q` or `Esc` | Close FM |
+| `q` or `Esc` | Close Ranger File Manager |
 
 ## Mouse Support
 
@@ -93,11 +93,15 @@ Bottom of screen shows keyboard shortcuts:
 
 ## Settings
 
-Access via: **Settings → FM - File Manager**
+Access via: **Settings → Ranger File Manager**
 
 - **Show preview by default** - Toggle markdown preview panel
 - **Show details by default** - Toggle file metadata panel
+- **Show file extensions** - Show file extensions in the list
+- **Show hidden files** - Include dotfiles in results
+- **Show hidden folders** - Include dotfolders in results
+- **Group folders first** - Sort folders before files
 
 ---
 
-For full documentation, see [README.md](README.md)
+For full documentation, see [README.md](../README.md)
