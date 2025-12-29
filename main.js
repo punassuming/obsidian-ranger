@@ -974,6 +974,9 @@ class FmPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    if (this.app.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      this.app.viewRegistry.unregisterView(VIEW_TYPE_FM);
+    }
     this.registerView(
       VIEW_TYPE_FM,
       (leaf) => new FmView(leaf, this.app, this)
@@ -997,6 +1000,16 @@ class FmPlugin extends Plugin {
         this.app.workspace.revealLeaf(leaf);
       },
     });
+  }
+
+  onunload() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    for (const leaf of leaves) {
+      leaf.setViewState({ type: 'empty' });
+    }
+    if (this.app.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      this.app.viewRegistry.unregisterView(VIEW_TYPE_FM);
+    }
   }
 
   async loadSettings() {
