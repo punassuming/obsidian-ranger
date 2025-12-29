@@ -1,6 +1,6 @@
-# Contributing to Ranger File Manager
+# Contributing to File Nav - Ranger for Obsidian
 
-Thank you for your interest in contributing to Ranger File Manager! This guide will help you get started.
+Thank you for your interest in contributing to File Nav - Ranger for Obsidian! This guide will help you get started.
 
 ## Quick Start for Development
 
@@ -21,17 +21,17 @@ Thank you for your interest in contributing to Ranger File Manager! This guide w
    ```bash
    # Create a symbolic link to your test vault's plugins directory
    # Linux/macOS:
-   ln -s "$(pwd)" "/path/to/your/vault/.obsidian/plugins/ranger-file-manager"
+   ln -s "$(pwd)" "/path/to/your/vault/.obsidian/plugins/file-nav-ranger"
    
    # Windows (run as Administrator):
-   mklink /D "C:\path\to\vault\.obsidian\plugins\ranger-file-manager" "C:\path\to\obsidian-ranger"
+   mklink /D "C:\path\to\vault\.obsidian\plugins\file-nav-ranger" "C:\path\to\obsidian-ranger"
    ```
 
 3. **Enable the plugin:**
    - Open Obsidian
    - Go to Settings → Community plugins
    - Disable Safe Mode (if needed)
-   - Enable "Ranger File Manager"
+   - Enable "File Nav - Ranger for Obsidian"
 
 ### Making Changes
 
@@ -56,7 +56,7 @@ After making changes:
 ### Testing Your Changes
 
 1. **Manual Testing:**
-   - Open Ranger File Manager with `-` key
+   - Open File Nav - Ranger for Obsidian with `-` key
    - Test all keyboard shortcuts
    - Try different file types
    - Test search functionality
@@ -168,7 +168,7 @@ After making changes:
 
 ## Plugin Philosophy
 
-Ranger File Manager aims to be:
+File Nav - Ranger for Obsidian aims to be:
 - **Keyboard-first:** Every action accessible via keyboard
 - **Minimal:** Focus on core file navigation and management
 - **Fast:** Quick to open and navigate
@@ -194,4 +194,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for contributing to Ranger File Manager! 🚀
+Thank you for contributing to File Nav - Ranger for Obsidian! 🚀

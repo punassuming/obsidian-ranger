@@ -1,7 +1,7 @@
-# Ranger File Manager - Quick Reference
+# File Nav - Ranger for Obsidian - Quick Reference
 
-## Opening Ranger File Manager
-Press **`-`** (hyphen) or use Command Palette: "Open Ranger File Manager"
+## Opening File Nav - Ranger for Obsidian
+Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsidian"
 
 ## Navigation
 
@@ -39,7 +39,7 @@ Press **`-`** (hyphen) or use Command Palette: "Open Ranger File Manager"
 | Key | Action |
 |-----|--------|
 | `zp` | Toggle preview pane |
-| `q` or `Esc` | Close Ranger File Manager |
+| `q` or `Esc` | Close File Nav - Ranger for Obsidian |
 
 ## Mouse Support
 
@@ -93,7 +93,7 @@ Bottom of screen shows keyboard shortcuts:
 
 ## Settings
 
-Access via: **Settings → Ranger File Manager**
+Access via: **Settings → File Nav - Ranger for Obsidian**
 
 - **Show preview by default** - Toggle markdown preview panel
 - **Show details by default** - Toggle file metadata panel

@@ -1,5 +1,5 @@
 /*
-  Ranger File Manager - File navigator with keyboard navigation
+  File Nav - Ranger for Obsidian - File navigator with keyboard navigation
   
   Features:
     - Vim-style hjkl navigation
@@ -25,7 +25,7 @@
     dd: cut (move) file/folder
     p: paste
   
-  Command: Open Ranger File Manager (default hotkey '-')
+  Command: Open File Nav - Ranger for Obsidian (default hotkey '-')
 */
 
 const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
@@ -62,7 +62,7 @@ function setEntryIcon(el, entry) {
   }
 }
 
-const VIEW_TYPE_FM = 'ranger-file-manager-view';
+const VIEW_TYPE_FM = 'file-nav-ranger-view';
 
 // Image file extensions for preview
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
@@ -100,7 +100,7 @@ class FmView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE_FM; }
-  getDisplayText() { return 'Ranger File Manager'; }
+  getDisplayText() { return 'File Nav - Ranger for Obsidian'; }
 
   async setState(state) {
     this.prevFilePath = state?.prevFile || null;
@@ -983,7 +983,7 @@ class FmPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-fm-file-manager',
-      name: 'Open Ranger File Manager',
+      name: 'Open File Nav - Ranger for Obsidian',
       hotkeys: [{ modifiers: [], key: '-' }],
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
@@ -1015,7 +1015,7 @@ class FmSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h3', { text: 'Ranger File Manager Settings' });
+    containerEl.createEl('h3', { text: 'File Nav - Ranger for Obsidian Settings' });
 
     new Setting(containerEl)
       .setName('Show preview by default')

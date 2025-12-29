@@ -1,9 +1,15 @@
 # Changelog
 
-All notable changes to Ranger File Manager will be documented in this file.
+All notable changes to File Nav - Ranger for Obsidian will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.6.1] - 2024-12-22
+
+### Changed
+- Renamed the plugin to File Nav - Ranger for Obsidian
+- Plugin ID updated to `file-nav-ranger`
 
 ## [0.6.0] - 2024-12-22
 
@@ -98,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Folder bookmarks
 - Rename operation
 
+[0.6.1]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.6.1
 [0.6.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.6.0
 [0.5.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.5.0
 [0.4.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.4.0

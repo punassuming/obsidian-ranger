@@ -1,7 +1,7 @@
 {
-  "id": "ranger-file-manager",
-  "name": "Ranger File Manager",
-  "version": "0.6.0",
+  "id": "file-nav-ranger",
+  "name": "File Nav - Ranger for Obsidian",
+  "version": "0.6.1",
   "minAppVersion": "1.4.0",
   "main": "main.js",
   "css": ["styles.css"],

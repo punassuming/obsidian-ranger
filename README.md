@@ -1,4 +1,4 @@
-# Ranger File Manager
+# File Nav - Ranger for Obsidian
 
 A complete file manager for Obsidian with keyboard navigation and file operations. Navigate your vault efficiently with vim-inspired shortcuts and manage files with copy, move, and delete operations.
 
@@ -21,22 +21,22 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 
 1. Open Obsidian Settings
 2. Navigate to Community Plugins and disable Safe Mode
-3. Click Browse and search for "Ranger File Manager"
+3. Click Browse and search for "File Nav - Ranger for Obsidian"
 4. Click Install, then Enable
 
 ### Manual Installation
 
 1. Download the latest release from [GitHub Releases](https://github.com/punassuming/obsidian-ranger/releases)
-2. Extract files to your vault's `.obsidian/plugins/ranger-file-manager/` directory
+2. Extract files to your vault's `.obsidian/plugins/file-nav-ranger/` directory
 3. Reload Obsidian
 4. Enable the plugin in Settings → Community Plugins
 
 ## Usage
 
-### Opening Ranger File Manager
+### Opening File Nav - Ranger for Obsidian
 
-- Press `-` (hyphen) to open Ranger File Manager in the current pane
-- Or use Command Palette: "Open Ranger File Manager"
+- Press `-` (hyphen) to open File Nav - Ranger for Obsidian in the current pane
+- Or use Command Palette: "Open File Nav - Ranger for Obsidian"
 
 ### Keyboard Shortcuts
 
@@ -54,7 +54,7 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `dd` | Cut file or folder (for moving) |
 | `p` | Paste copied/cut item |
 | `zp` | Toggle preview pane |
-| `q` / `Esc` | Close Ranger File Manager (or exit search) |
+| `q` / `Esc` | Close File Nav - Ranger for Obsidian (or exit search) |
 
 ### Search Mode
 
@@ -91,7 +91,7 @@ Right-click on any file or folder for quick actions:
 
 ## Settings
 
-Access plugin settings via Settings → Ranger File Manager:
+Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 
 - **Show preview by default**: Enable/disable the markdown preview panel
 - **Show details by default**: Enable/disable the file/folder details panel
