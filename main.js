@@ -35,7 +35,7 @@
   Command: Open File Nav - Ranger for Obsidian (default hotkey '-')
 */
 
-const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
+const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, MarkdownView, setIcon, Menu, PluginSettingTab, Setting, Notice } = require('obsidian');
 
 // Helper: choose an icon name for a file based on extension
 function iconForFileName(name) {
@@ -1225,16 +1225,12 @@ class FmPlugin extends Plugin {
       id: 'open-fm-file-manager',
       name: 'Open File Nav - Ranger for Obsidian',
       hotkeys: [{ modifiers: [], key: '-' }],
-      callback: async () => {
-    const activeFile = this.app.workspace.getActiveFile();
-    const leaf = this.app.workspace.getLeaf(false);
-        const startFolder = activeFile?.parent || this.app.vault.getRoot();
-        await leaf.setViewState({
-          type: VIEW_TYPE_FM,
-          active: true,
-          state: { startFolder: startFolder.path, selectFile: activeFile?.path || null, prevFile: activeFile?.path || null },
-        });
-        this.app.workspace.revealLeaf(leaf);
+      checkCallback: (checking) => {
+        const canOpen = this.canOpenFileNav();
+        if (checking) return canOpen;
+        if (!canOpen) return false;
+        this.openFileNav();
+        return true;
       },
     });
   }
@@ -1254,6 +1250,33 @@ class FmPlugin extends Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  canOpenFileNav() {
+    const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!markdownView) return true;
+    const mode = markdownView.getMode?.() || markdownView.getState?.()?.mode || markdownView.currentMode?.type;
+    if (mode && mode !== 'source') return true;
+    const vimEnabled = this.app.vault.getConfig?.('vimMode');
+    if (!vimEnabled) return false;
+    const editorView = markdownView.editor?.cm;
+    const editorDom = editorView?.dom
+      || editorView?.contentDOM
+      || markdownView.contentEl?.querySelector('.cm-editor');
+    if (!editorDom) return false;
+    return editorDom.classList.contains('cm-fat-cursor');
+  }
+
+  async openFileNav() {
+    const activeFile = this.app.workspace.getActiveFile();
+    const leaf = this.app.workspace.getLeaf(false);
+    const startFolder = activeFile?.parent || this.app.vault.getRoot();
+    await leaf.setViewState({
+      type: VIEW_TYPE_FM,
+      active: true,
+      state: { startFolder: startFolder.path, selectFile: activeFile?.path || null, prevFile: activeFile?.path || null },
+    });
+    this.app.workspace.revealLeaf(leaf);
   }
 }
 
