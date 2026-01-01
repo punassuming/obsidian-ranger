@@ -41,7 +41,11 @@ const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, MarkdownView, setIco
 function iconForFileName(name) {
   const ext = (name.split('.').pop() || '').toLowerCase();
   // markdown and notes
-  if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org') return 'file-text';
+  if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org' || ext === 'log') return 'file-text';
+  // documents
+  if (['doc','docx','odt','pages'].includes(ext)) return 'file-text';
+  // ebooks
+  if (['epub','mobi','azw','azw3'].includes(ext)) return 'book';
   // images
   if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic','heif','jfif','jxl'].includes(ext)) return 'image';
   // audio
@@ -50,10 +54,16 @@ function iconForFileName(name) {
   if (['mp4','mkv','webm','mov','avi','m4v','wmv'].includes(ext)) return 'video';
   // spreadsheets / data
   if (['csv','tsv','xls','xlsx','ods'].includes(ext)) return 'table';
-  // presentations / docs
-  if (['pdf','ppt','pptx','odp','doc','docx','odt','epub'].includes(ext)) return 'file-text';
+  // presentations
+  if (['ppt','pptx','odp','key'].includes(ext)) return 'presentation';
+  // PDFs
+  if (ext === 'pdf') return 'file-text';
   // code
   if (['js','ts','tsx','jsx','mjs','cjs','json','yaml','yml','toml','xml','html','css','scss','sass','less','mdx','py','rb','java','kt','c','cc','cpp','h','hpp','cs','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
+  // config
+  if (['ini','conf','config','env','dotenv'].includes(ext)) return 'settings';
+  // databases
+  if (['db','sqlite','sqlite3','duckdb'].includes(ext)) return 'database';
   // archives & packages
   if (['zip','rar','7z','tar','gz','bz2','xz','tgz'].includes(ext)) return 'package';
   return 'file';
