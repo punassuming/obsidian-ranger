@@ -41,19 +41,29 @@ const { Plugin, ItemView, TFile, TFolder, MarkdownRenderer, MarkdownView, setIco
 function iconForFileName(name) {
   const ext = (name.split('.').pop() || '').toLowerCase();
   // markdown and notes
-  if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org') return 'file-text';
+  if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org' || ext === 'log') return 'file-text';
+  // documents
+  if (['doc','docx','odt','pages'].includes(ext)) return 'file-text';
+  // ebooks
+  if (['epub','mobi','azw','azw3'].includes(ext)) return 'book';
   // images
-  if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic'].includes(ext)) return 'image';
+  if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic','heif','jfif','jxl'].includes(ext)) return 'image';
   // audio
   if (['mp3','wav','m4a','flac','ogg','oga','aac','aiff','alac','opus'].includes(ext)) return 'music';
   // video
   if (['mp4','mkv','webm','mov','avi','m4v','wmv'].includes(ext)) return 'video';
   // spreadsheets / data
   if (['csv','tsv','xls','xlsx','ods'].includes(ext)) return 'table';
-  // presentations / docs
-  if (['pdf','ppt','pptx','odp'].includes(ext)) return 'file-text';
+  // presentations
+  if (['ppt','pptx','odp','key'].includes(ext)) return 'presentation';
+  // PDFs
+  if (ext === 'pdf') return 'file-text';
   // code
-  if (['js','ts','tsx','jsx','json','yaml','yml','toml','xml','html','css','scss','sass','less','py','rb','java','kt','c','cc','cpp','h','hpp','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
+  if (['js','ts','tsx','jsx','mjs','cjs','json','yaml','yml','toml','xml','html','css','scss','sass','less','mdx','py','rb','java','kt','c','cc','cpp','h','hpp','cs','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
+  // config
+  if (['ini','conf','config','env','dotenv'].includes(ext)) return 'settings';
+  // databases
+  if (['db','sqlite','sqlite3','duckdb'].includes(ext)) return 'database';
   // archives & packages
   if (['zip','rar','7z','tar','gz','bz2','xz','tgz'].includes(ext)) return 'package';
   return 'file';
@@ -72,7 +82,7 @@ function setEntryIcon(el, entry) {
 const VIEW_TYPE_FM = 'file-nav-ranger-view';
 
 // Image file extensions for preview
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif', 'jfif', 'jxl'];
 
 class FmView extends ItemView {
   constructor(leaf, app, plugin) {
@@ -1255,14 +1265,16 @@ class FmPlugin extends Plugin {
   canOpenFileNav() {
     const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!markdownView) return true;
-    const mode = markdownView.getMode?.() || markdownView.currentMode?.type;
+    const mode = markdownView.getMode?.() || markdownView.getState?.()?.mode || markdownView.currentMode?.type;
     if (mode && mode !== 'source') return true;
     const vimEnabled = this.app.vault.getConfig?.('vimMode');
     if (!vimEnabled) return false;
     const editorView = markdownView.editor?.cm;
-    const editorDom = editorView?.dom;
+    const editorDom = editorView?.dom
+      || editorView?.contentDOM
+      || markdownView.contentEl?.querySelector('.cm-editor');
     if (!editorDom) return false;
-    return editorDom.classList.contains('cm-fat-cursor') || editorDom.classList.contains('cm-vim');
+    return editorDom.classList.contains('cm-fat-cursor');
   }
 
   async openFileNav() {
