@@ -43,7 +43,7 @@ function iconForFileName(name) {
   // markdown and notes
   if (ext === 'md' || ext === 'txt' || ext === 'rtf' || ext === 'org') return 'file-text';
   // images
-  if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic'].includes(ext)) return 'image';
+  if (['png','jpg','jpeg','gif','svg','webp','bmp','tiff','tif','ico','avif','heic','heif','jfif','jxl'].includes(ext)) return 'image';
   // audio
   if (['mp3','wav','m4a','flac','ogg','oga','aac','aiff','alac','opus'].includes(ext)) return 'music';
   // video
@@ -51,9 +51,9 @@ function iconForFileName(name) {
   // spreadsheets / data
   if (['csv','tsv','xls','xlsx','ods'].includes(ext)) return 'table';
   // presentations / docs
-  if (['pdf','ppt','pptx','odp'].includes(ext)) return 'file-text';
+  if (['pdf','ppt','pptx','odp','doc','docx','odt','epub'].includes(ext)) return 'file-text';
   // code
-  if (['js','ts','tsx','jsx','json','yaml','yml','toml','xml','html','css','scss','sass','less','py','rb','java','kt','c','cc','cpp','h','hpp','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
+  if (['js','ts','tsx','jsx','mjs','cjs','json','yaml','yml','toml','xml','html','css','scss','sass','less','mdx','py','rb','java','kt','c','cc','cpp','h','hpp','cs','rs','go','sh','zsh','fish','lua','php','pl','r','swift'].includes(ext)) return 'code';
   // archives & packages
   if (['zip','rar','7z','tar','gz','bz2','xz','tgz'].includes(ext)) return 'package';
   return 'file';
@@ -72,7 +72,7 @@ function setEntryIcon(el, entry) {
 const VIEW_TYPE_FM = 'file-nav-ranger-view';
 
 // Image file extensions for preview
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif', 'jfif', 'jxl'];
 
 class FmView extends ItemView {
   constructor(leaf, app, plugin) {
