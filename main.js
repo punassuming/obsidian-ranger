@@ -28,8 +28,9 @@
     a / A: new note / new folder
     r: rename selected item
     D: duplicate selected item
-    yy: copy file/folder
-    dd: cut (move) file/folder
+    y: copy file/folder
+    x: cut (move) file/folder
+    d: delete file/folder
     p: paste
   
   Command: Open File Nav (no default hotkey)
@@ -41,6 +42,9 @@ const {
   TFile,
   TFolder,
   MarkdownRenderer,
+  Modal,
+  TextComponent,
+  ButtonComponent,
   setIcon,
   Menu,
   PluginSettingTab,
@@ -366,8 +370,8 @@ class FmView extends ItemView {
     this.render();
     host.focus({ preventScroll: true });
 
-    // Keyboard handling when the view has focus
-    this.registerDomEvent(host, "keydown", (evt) => {
+    // Keyboard handling across the view (capture to avoid focus quirks)
+    this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
       if (activeInSearch) {
@@ -411,6 +415,7 @@ class FmView extends ItemView {
           "N",
           "z",
           "y",
+          "x",
           "d",
           "p",
         ].includes(k) ||
@@ -442,14 +447,15 @@ class FmView extends ItemView {
       else if (k === "N") this.cycleSearch(-1);
       else if (k === "Escape" || k === "q") this.closeView();
       else if (k === "z") this.handleZ();
-      else if (k === "y") this.handleY();
-      else if (k === "d") this.handleD();
+      else if (k === "y") this.copyEntry();
+      else if (k === "x") this.cutEntry();
+      else if (k === "d") this.deleteEntry();
       else if (k === "p") this.handleP();
       else if (k === "a") this.createNewNote();
       else if (k === "A") this.createNewFolder();
       else if (k === "r") this.renameEntry();
       else if (k === "D") this.duplicateEntry();
-    });
+    }, true);
   }
 
   async onClose() {
@@ -890,34 +896,6 @@ class FmView extends ItemView {
     this.contentEl.addEventListener("keydown", onKey, true);
   }
 
-  handleY() {
-    // yy: copy file/folder
-    if (this._yTimer) {
-      // second 'y'
-      window.clearTimeout(this._yTimer);
-      this._yTimer = null;
-      this.copyEntry();
-      return;
-    }
-    this._yTimer = window.setTimeout(() => {
-      this._yTimer = null;
-    }, 400);
-  }
-
-  handleD() {
-    // dd: cut (move) file/folder
-    if (this._dTimer) {
-      // second 'd'
-      window.clearTimeout(this._dTimer);
-      this._dTimer = null;
-      this.cutEntry();
-      return;
-    }
-    this._dTimer = window.setTimeout(() => {
-      this._dTimer = null;
-    }, 400);
-  }
-
   handleP() {
     // p: paste
     this.pasteEntry();
@@ -939,6 +917,19 @@ class FmView extends ItemView {
     this.clipboardOperation = "cut";
     // Visual feedback
     new Notice(`Cut: ${entry.name} (ready to move)`);
+  }
+
+  async deleteEntry() {
+    if (!this.entries.length) return;
+    const entry = this.entries[this.selectedIndex];
+    const isFolder = entry instanceof TFolder;
+    const label = isFolder ? "folder" : "file";
+    const confirmed = confirm(
+      `Delete ${label} ${entry.path}${isFolder ? " and all contents" : ""}?`,
+    );
+    if (!confirmed) return;
+    await this.app.vault.delete(entry, isFolder ? true : undefined);
+    this.render();
   }
 
   async pasteEntry() {
@@ -1084,8 +1075,65 @@ class FmView extends ItemView {
     return trimmed;
   }
 
+  promptForName(title, placeholder, value) {
+    return new Promise((resolve) => {
+      let resolved = false;
+      const modal = new Modal(this.app);
+      modal.onClose = () => {
+        if (!resolved) resolve(null);
+      };
+      modal.onOpen = () => {
+        const { contentEl } = modal;
+        contentEl.empty();
+        contentEl.createEl("h3", { text: title });
+        const input = new TextComponent(contentEl);
+        if (placeholder) input.setPlaceholder(placeholder);
+        if (value) input.setValue(value);
+        input.inputEl.addClass("fm-input");
+        input.inputEl.addEventListener("keydown", (evt) => {
+          if (evt.key === "Enter") {
+            evt.preventDefault();
+            evt.stopPropagation();
+            const name = input.getValue().trim();
+            resolved = true;
+            modal.close();
+            resolve(name || null);
+          } else if (evt.key === "Escape") {
+            evt.preventDefault();
+            evt.stopPropagation();
+            resolved = true;
+            modal.close();
+            resolve(null);
+          }
+        });
+        const buttons = contentEl.createDiv({ cls: "fm-modal-buttons" });
+        const okBtn = new ButtonComponent(buttons)
+          .setButtonText("OK")
+          .setCta();
+        okBtn.onClick(() => {
+          const name = input.getValue().trim();
+          resolved = true;
+          modal.close();
+          resolve(name || null);
+        });
+        const cancelBtn = new ButtonComponent(buttons).setButtonText("Cancel");
+        cancelBtn.onClick(() => {
+          resolved = true;
+          modal.close();
+          resolve(null);
+        });
+        window.setTimeout(() => input.inputEl.focus(), 0);
+      };
+      modal.open();
+    });
+  }
+
   async createNewNote() {
-    const rawName = prompt("New note name");
+    const rawName = await this.promptForName(
+      "New note",
+      "Note name",
+      "",
+    );
     const noteName = this.normalizeNoteName(rawName || "");
     if (!noteName) return;
     const path = this.buildChildPath(this.currentFolder.path, noteName);
@@ -1104,7 +1152,11 @@ class FmView extends ItemView {
   }
 
   async createNewFolder() {
-    const rawName = prompt("New folder name");
+    const rawName = await this.promptForName(
+      "New folder",
+      "Folder name",
+      "",
+    );
     const folderName = (rawName || "").trim().replace(/^\/+/, "");
     if (!folderName) return;
     const path = this.buildChildPath(this.currentFolder.path, folderName);
@@ -1247,7 +1299,7 @@ class FmView extends ItemView {
       menu.addSeparator();
       menu.addItem((i) =>
         i
-          .setTitle("Copy file (yy)")
+          .setTitle("Copy file (y)")
           .setIcon("copy")
           .onClick(() => {
             this.selectedIndex = this.entries.findIndex(
@@ -1258,7 +1310,7 @@ class FmView extends ItemView {
       );
       menu.addItem((i) =>
         i
-          .setTitle("Cut file (dd)")
+          .setTitle("Cut file (x)")
           .setIcon("scissors")
           .onClick(() => {
             this.selectedIndex = this.entries.findIndex(
@@ -1280,7 +1332,7 @@ class FmView extends ItemView {
       );
       menu.addItem((i) =>
         i
-          .setTitle("Delete")
+          .setTitle("Delete (d)")
           .setIcon("trash")
           .onClick(async () => {
             if (confirm(`Delete ${entry.path}?`)) {
@@ -1328,7 +1380,7 @@ class FmView extends ItemView {
       menu.addSeparator();
       menu.addItem((i) =>
         i
-          .setTitle("Copy folder (yy)")
+          .setTitle("Copy folder (y)")
           .setIcon("copy")
           .onClick(() => {
             this.selectedIndex = this.entries.findIndex(
@@ -1339,7 +1391,7 @@ class FmView extends ItemView {
       );
       menu.addItem((i) =>
         i
-          .setTitle("Cut folder (dd)")
+          .setTitle("Cut folder (x)")
           .setIcon("scissors")
           .onClick(() => {
             this.selectedIndex = this.entries.findIndex(
@@ -1428,8 +1480,9 @@ class FmView extends ItemView {
       { keys: ["a", "A"], desc: "new note/folder" },
       { keys: ["r"], desc: "rename" },
       { keys: ["D"], desc: "duplicate" },
-      { keys: ["yy"], desc: "copy" },
-      { keys: ["dd"], desc: "cut" },
+      { keys: ["y"], desc: "copy" },
+      { keys: ["x"], desc: "cut" },
+      { keys: ["d"], desc: "delete" },
       { keys: ["p"], desc: "paste" },
       { keys: ["zd"], desc: "toggle panes" },
       { keys: ["zp"], desc: "preview mode" },
