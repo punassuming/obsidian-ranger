@@ -924,12 +924,26 @@ class FmView extends ItemView {
     const entry = this.entries[this.selectedIndex];
     const isFolder = entry instanceof TFolder;
     const label = isFolder ? "folder" : "file";
+    const canTrash = typeof this.app.fileManager?.trashFile === "function";
+    const actionLabel = canTrash ? "Move to trash" : "Delete";
     const confirmed = confirm(
-      `Delete ${label} ${entry.path}${isFolder ? " and all contents" : ""}?`,
+      `${actionLabel} ${label} ${entry.path}${
+        isFolder ? " and all contents" : ""
+      }?`,
     );
     if (!confirmed) return;
-    await this.app.vault.delete(entry, isFolder ? true : undefined);
+    await this.trashOrDeleteEntry(entry, isFolder);
     this.render();
+  }
+
+  async trashOrDeleteEntry(entry, isFolder) {
+    if (typeof this.app.fileManager?.trashFile === "function") {
+      try {
+        await this.app.fileManager.trashFile(entry);
+        return;
+      } catch {}
+    }
+    await this.app.vault.delete(entry, isFolder ? true : undefined);
   }
 
   async pasteEntry() {
@@ -1335,10 +1349,10 @@ class FmView extends ItemView {
           .setTitle("Delete (d)")
           .setIcon("trash")
           .onClick(async () => {
-            if (confirm(`Delete ${entry.path}?`)) {
-              await this.app.vault.delete(entry);
-              this.render();
-            }
+            this.selectedIndex = this.entries.findIndex(
+              (e) => e.path === entry.path,
+            );
+            await this.deleteEntry();
           }),
       );
     } else if (entry instanceof TFolder) {
