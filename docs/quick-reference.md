@@ -20,25 +20,32 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 
 | Key | Action |
 |-----|--------|
-| `yy` | Copy file/folder |
-| `dd` | Cut file/folder (for moving) |
+| `y` | Copy file/folder |
+| `x` | Cut file/folder (for moving) |
+| `d` | Delete file/folder |
 | `p` | Paste copied/cut item |
+| `a` | Create new note |
+| `A` | Create new folder |
+| `r` | Rename selected item |
+| `D` | Duplicate selected item |
 
-## Search
+## Search and Filter
 
 | Key | Action |
 |-----|--------|
-| `/` | Open search |
+| `/` | Open search mode (highlight matches) |
+| `f` | Open filter mode (show only matches) |
 | `n` | Next match |
 | `N` | Previous match |
-| `Enter` | Keep filter, exit search |
-| `Esc` | Clear filter, exit search |
+| `Enter` | Keep filter/highlights, exit |
+| `Esc` | Clear filter/highlights, exit |
 
 ## View Controls
 
 | Key | Action |
 |-----|--------|
-| `zp` | Toggle preview pane |
+| `zd` | Toggle preview pane visibility |
+| `zp` | Toggle preview mode (rendered/text) |
 | `q` or `Esc` | Close File Nav - Ranger for Obsidian |
 
 ## Mouse Support
@@ -52,44 +59,76 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 ### For Files:
 - Open
 - Open in new pane
-- Copy file (yy)
-- Cut file (dd)
+- Rename (r)
+- Duplicate (D)
+- Copy file (y)
+- Cut file (x)
 - Copy path
-- Delete
+- Delete (d)
 
 ### For Folders:
 - Enter folder
-- Copy folder (yy)
-- Cut folder (dd)
+- Rename (r)
+- Duplicate (D)
+- Copy folder (y)
+- Cut folder (x)
 - Copy path
+- Delete (d)
 
 ## File Operation Workflow
 
+### Create a Note:
+1. Navigate to destination folder with `h`/`l`
+2. Press `a` to create new note
+3. Enter note name
+
+### Create a Folder:
+1. Navigate to parent folder with `h`/`l`
+2. Press `A` to create new folder
+3. Enter folder name
+
 ### Copy a File:
 1. Navigate to file with `j`/`k`
-2. Press `yy` to copy
+2. Press `y` to copy
 3. Navigate to destination folder with `h`/`l`
 4. Press `p` to paste
 
 ### Move a File:
 1. Navigate to file with `j`/`k`
-2. Press `dd` to cut
+2. Press `x` to cut
 3. Navigate to destination folder with `h`/`l`
 4. Press `p` to paste
+
+### Rename a File:
+1. Navigate to file with `j`/`k`
+2. Press `r` to rename
+3. Enter new name
+
+### Duplicate a File:
+1. Navigate to file with `j`/`k`
+2. Press `D` to duplicate
+3. A copy will be created with " copy" appended
+
+### Delete a File:
+1. Navigate to file with `j`/`k`
+2. Press `d` to delete
+3. Confirm deletion when prompted
 
 ## Status Bar
 
 Bottom of screen shows keyboard shortcuts:
-`j/k navigate • h/l parent/open • yy copy • dd cut • p paste • q close`
+`j/k navigate • h/l parent/open • / search • f filter • y copy • x cut • d delete • p paste • q close`
 
 ## Tips
 
 - All operations work with keyboard only
-- Search highlights matches in real-time
-- Preview shows markdown rendering
+- Search mode highlights matches; filter mode shows only matches
+- Press `zd` to toggle preview pane, `zp` to toggle preview mode
+- Preview shows markdown rendering or raw text
 - Selected items show in accent color
 - Works with your Obsidian theme
 - Copy/move operations support both files and folders
+- Create, rename, duplicate, and delete operations work on both files and folders
 
 ## Settings
 
