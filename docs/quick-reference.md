@@ -73,7 +73,8 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 - Copy folder (y)
 - Cut folder (x)
 - Copy path
-- Delete (d)
+
+> **Note:** Use the `d` keyboard shortcut to delete folders.
 
 ## File Operation Workflow
 

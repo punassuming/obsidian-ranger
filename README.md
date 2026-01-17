@@ -127,7 +127,9 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 
 Right-click on any file or folder for quick actions:
 - **Files**: Open, Open in new pane, Rename, Duplicate, Copy file, Cut file, Copy path, Delete
-- **Folders**: Enter folder, Rename, Duplicate, Copy folder, Cut folder, Copy path, Delete
+- **Folders**: Enter folder, Rename, Duplicate, Copy folder, Cut folder, Copy path
+
+> **Note:** Use the `d` keyboard shortcut to delete both files and folders.
 
 ## Settings
 
