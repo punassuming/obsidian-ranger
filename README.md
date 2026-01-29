@@ -174,8 +174,8 @@ Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 - **Group folders first**: Control folder-first sorting
 
 ### Multi-file Operations
-- **Confirm before copying**: Show confirmation dialog when copying multiple files (optional)
-- **Confirm before moving**: Show confirmation dialog when moving multiple files (optional)
+- **Confirm before copying**: Show confirmation dialog when copying files (optional)
+- **Confirm before moving**: Show confirmation dialog when moving files (optional)
 - **Note**: Delete operations always require confirmation for safety
 
 ## Documentation

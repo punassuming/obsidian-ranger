@@ -572,8 +572,19 @@ class FmView extends ItemView {
     // Update CSS class only to avoid full rerender flicker
     const nodes = this.listEl.querySelectorAll(".fm-item");
     nodes.forEach((n, i) => {
+      const entry = this.entries[i];
+      if (!entry) return;
+      
+      // Update current selection indicator
       if (i === this.selectedIndex) n.addClass("is-selected");
       else n.removeClass("is-selected");
+      
+      // Update multi-selection indicator
+      if (this.selectedFiles.has(entry.path)) {
+        n.addClass("is-multi-selected");
+      } else {
+        n.removeClass("is-multi-selected");
+      }
     });
     this.updateWindowTitle();
   }
@@ -1023,6 +1034,7 @@ class FmView extends ItemView {
 
   async showDeleteConfirmation(entries, actionLabel) {
     return new Promise((resolve) => {
+      let resolved = false;
       const modal = new Modal(this.app);
       modal.titleEl.setText(`${actionLabel} ${entries.length} item${entries.length === 1 ? '' : 's'}?`);
       
@@ -1062,6 +1074,7 @@ class FmView extends ItemView {
       const cancelBtn = new ButtonComponent(buttonContainer)
         .setButtonText("Cancel")
         .onClick(() => {
+          resolved = true;
           modal.close();
           resolve(false);
         });
@@ -1070,9 +1083,16 @@ class FmView extends ItemView {
         .setButtonText(actionLabel)
         .setWarning()
         .onClick(() => {
+          resolved = true;
           modal.close();
           resolve(true);
         });
+      
+      modal.onClose = () => {
+        if (!resolved) {
+          resolve(false);
+        }
+      };
       
       modal.open();
     });
@@ -1110,21 +1130,27 @@ class FmView extends ItemView {
     let failCount = 0;
     
     for (const source of sources) {
+      let success = false;
       try {
         // Use helper to check if we're pasting in the same location
         if (this.isSameFolderCopy(source, destFolder)) {
           // Need to create a copy with a different name
-          await this.copyFileWithNewName(source, destFolder);
+          success = await this.copyFileWithNewName(source, destFolder);
         } else if (source instanceof TFolder && source.path === destFolder.path) {
           new Notice(`Cannot paste folder ${source.name} into itself`);
           failCount++;
           continue;
         } else if (operation === "copy") {
-          await this.copyToFolder(source, destFolder);
+          success = await this.copyToFolder(source, destFolder);
         } else if (operation === "cut") {
-          await this.moveToFolder(source, destFolder);
+          success = await this.moveToFolder(source, destFolder);
         }
-        successCount++;
+        
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       } catch (err) {
         new Notice(`Failed to paste ${source.name}: ${err.message}`);
         failCount++;
@@ -1171,6 +1197,7 @@ class FmView extends ItemView {
 
   async showPasteConfirmation(sources, operation, destFolder) {
     return new Promise((resolve) => {
+      let resolved = false;
       const modal = new Modal(this.app);
       const verb = operation === "copy" ? "Copy" : "Move";
       modal.titleEl.setText(`${verb} ${sources.length} item${sources.length === 1 ? '' : 's'}?`);
@@ -1201,6 +1228,7 @@ class FmView extends ItemView {
       const cancelBtn = new ButtonComponent(buttonContainer)
         .setButtonText("Cancel")
         .onClick(() => {
+          resolved = true;
           modal.close();
           resolve(false);
         });
@@ -1209,9 +1237,16 @@ class FmView extends ItemView {
         .setButtonText(verb)
         .setCta()
         .onClick(() => {
+          resolved = true;
           modal.close();
           resolve(true);
         });
+      
+      modal.onClose = () => {
+        if (!resolved) {
+          resolve(false);
+        }
+      };
       
       modal.open();
     });
@@ -1248,15 +1283,17 @@ class FmView extends ItemView {
 
     if (counter >= MAX_ATTEMPTS) {
       new Notice("Failed to find available filename");
-      return;
+      return false;
     }
 
     try {
       const content = await this.app.vault.read(file);
       await this.app.vault.create(newPath, content);
       new Notice(`Copied to: ${newName}`);
+      return true;
     } catch (err) {
       new Notice(`Failed to copy: ${err.message}`);
+      return false;
     }
   }
 
@@ -1269,7 +1306,7 @@ class FmView extends ItemView {
     // Check if destination already exists
     if (this.app.vault.getAbstractFileByPath(newPath)) {
       new Notice(`Already exists: ${source.name}`);
-      return;
+      return false;
     }
 
     try {
@@ -1281,8 +1318,10 @@ class FmView extends ItemView {
         await this.copyFolderRecursive(source, newPath);
         new Notice(`Copied folder: ${source.name}`);
       }
+      return true;
     } catch (err) {
       new Notice(`Failed to copy: ${err.message}`);
+      return false;
     }
   }
 
@@ -1311,14 +1350,16 @@ class FmView extends ItemView {
     // Check if destination already exists
     if (this.app.vault.getAbstractFileByPath(newPath)) {
       new Notice(`Already exists: ${source.name}`);
-      return;
+      return false;
     }
 
     try {
       await this.app.vault.rename(source, newPath);
       new Notice(`Moved: ${source.name}`);
+      return true;
     } catch (err) {
       new Notice(`Failed to move: ${err.message}`);
+      return false;
     }
   }
 
@@ -1737,9 +1778,6 @@ class FmView extends ItemView {
         cls: "fm-selection-info",
         text: `${this.selectedFiles.size} selected` 
       });
-      selectionInfo.style.fontWeight = "bold";
-      selectionInfo.style.color = "var(--interactive-accent)";
-      selectionInfo.style.marginRight = "var(--size-4-3)";
       this.statusEl.createSpan({ cls: "fm-status-sep", text: "•" });
     }
     
@@ -2075,7 +2113,7 @@ class FmSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Confirm before copying")
-      .setDesc("Show confirmation dialog when copying multiple files (delete always requires confirmation)")
+      .setDesc("Show confirmation dialog when copying files (delete always requires confirmation)")
       .addToggle((t) =>
         t
           .setValue(!!this.plugin.settings.confirmCopy)
@@ -2087,7 +2125,7 @@ class FmSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Confirm before moving")
-      .setDesc("Show confirmation dialog when moving multiple files (delete always requires confirmation)")
+      .setDesc("Show confirmation dialog when moving files (delete always requires confirmation)")
       .addToggle((t) =>
         t
           .setValue(!!this.plugin.settings.confirmMove)
