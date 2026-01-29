@@ -3,6 +3,8 @@
   
   Features:
     - Vim-style hjkl navigation
+    - Multiple file selection with visual indicators
+    - Batch operations: copy, move, delete multiple files
     - Quick search with / key (highlighted matches)
     - Filter list with f key
     - Real-time markdown preview pane
@@ -12,6 +14,7 @@
     - Quick create notes and folders
     - Context menus for file operations
     - Customizable preview and details panels
+    - Link preservation using Obsidian's internal API
   
   Key Bindings:
     j/k: move selection down/up
@@ -22,15 +25,17 @@
     n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
+    v / Space: toggle file selection (for multi-file operations)
+    Ctrl+a: select all / deselect all
     zd: toggle preview pane
     zp: toggle rendered/text preview
     q or Esc: exit search or close view
     a / A: new note / new folder
     r: rename selected item
     D: duplicate selected item
-    y: copy file/folder
-    x: cut (move) file/folder
-    d: delete file/folder
+    y: copy file(s)/folder(s)
+    x: cut (move) file(s)/folder(s)
+    d: delete file(s)/folder(s) with confirmation
     p: paste
   
   Command: Open File Nav (no default hotkey)

@@ -7,7 +7,10 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 ## Features
 
 - **Vim-style Navigation**: Navigate with `hjkl` keys for intuitive file browsing
+- **Multiple File Selection**: Select multiple files/folders with visual indicators for batch operations
 - **File Operations**: Create, rename, duplicate, copy, move (cut), and delete files and folders
+- **Batch Operations**: Copy, move, or delete multiple files at once with detailed confirmation dialogs
+- **Link Preservation**: All operations use Obsidian's internal API to maintain link integrity
 - **Quick Search**: Press `/` to highlight matching files in real-time
 - **Filter Mode**: Press `f` to filter list to only matching entries
 - **Markdown Preview**: See file contents in real-time as you browse
@@ -16,6 +19,7 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 - **Keyboard Shortcuts**: Fully keyboard-driven for maximum efficiency
 - **Context Menus**: Right-click for quick actions
 - **Multiple File Type Icons**: Visual indicators for different file types
+- **Configurable Confirmations**: Optional confirmation dialogs for copy/move operations (delete always requires confirmation)
 
 ## Installation
 
@@ -53,10 +57,12 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `gg` | Jump to top |
 | `G` | Jump to bottom |
 | `Ctrl+d` / `Ctrl+u` | Move down / up by 10 items |
-| `y` | Copy file or folder |
-| `x` | Cut file or folder (for moving) |
-| `d` | Delete file or folder |
-| `p` | Paste copied/cut item |
+| `v` / `Space` | Toggle file selection (for multi-file operations) |
+| `Ctrl+a` | Select all / Deselect all |
+| `y` | Copy file(s) or folder(s) |
+| `x` | Cut file(s) or folder(s) (for moving) |
+| `d` | Delete file(s) or folder(s) |
+| `p` | Paste copied/cut item(s) |
 | `a` | Create new note |
 | `A` | Create new folder |
 | `r` | Rename selected item |
@@ -82,6 +88,25 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 
 ### File Operations
 
+#### Multiple File Selection
+
+You can now select multiple files and folders for batch operations:
+
+1. Press `v` or `Space` to toggle selection on the current file/folder
+2. Press `Ctrl+a` to select all items in the current folder (press again to deselect all)
+3. Selected items will show a checkmark (✓) and a colored border
+4. The status bar at the bottom shows the number of selected items
+
+Once you have multiple items selected, you can:
+- Press `y` to copy all selected items
+- Press `x` to cut all selected items (for moving)
+- Press `d` to delete all selected items
+- Press `p` to paste all items to the current folder
+
+**Note:** All operations use Obsidian's internal API to ensure that links and references are properly updated.
+
+#### Single File Operations
+
 #### Create New Note
 1. Navigate to the folder where you want to create the note
 2. Press `a` to create a new note
@@ -95,16 +120,16 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 4. The new folder will be created and selected
 
 #### Copy
-1. Navigate to file or folder you want to copy
+1. Navigate to file or folder you want to copy (or select multiple with `v`/`Space`)
 2. Press `y` to copy
 3. Navigate to destination folder
-4. Press `p` to paste
+4. Press `p` to paste (confirmation dialog can be enabled in settings)
 
 #### Move
-1. Navigate to file or folder you want to move
+1. Navigate to file or folder you want to move (or select multiple with `v`/`Space`)
 2. Press `x` to cut
 3. Navigate to destination folder
-4. Press `p` to paste
+4. Press `p` to paste (confirmation dialog can be enabled in settings)
 
 #### Rename
 1. Navigate to file or folder you want to rename
@@ -118,10 +143,11 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 3. A copy will be created with " copy" appended to the name
 
 #### Delete
-1. Navigate to file or folder you want to delete
+1. Navigate to file or folder you want to delete (or select multiple with `v`/`Space`)
 2. Press `d` to delete
-3. Confirm the deletion when prompted
-4. The item will be moved to trash (or permanently deleted if trash is not available)
+3. Confirm the deletion when prompted (always required for safety)
+4. A detailed confirmation dialog will show all items to be deleted
+5. The items will be moved to trash (or permanently deleted if trash is not available)
 
 ### Context Menu
 
@@ -135,12 +161,22 @@ Right-click on any file or folder for quick actions:
 
 Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 
+### Display Settings
 - **Show preview by default**: Enable/disable the markdown preview panel
 - **Show details by default**: Enable/disable the file/folder details panel
+
+### File Options
 - **Show file extensions**: Toggle filename extensions in the list
 - **Show hidden files**: Include dotfiles in file results
+
+### Folder Options
 - **Show hidden folders**: Include dotfolders in folder results
 - **Group folders first**: Control folder-first sorting
+
+### Multi-file Operations
+- **Confirm before copying**: Show confirmation dialog when copying multiple files (optional)
+- **Confirm before moving**: Show confirmation dialog when moving multiple files (optional)
+- **Note**: Delete operations always require confirmation for safety
 
 ## Documentation
 
