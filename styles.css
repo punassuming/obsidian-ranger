@@ -95,6 +95,30 @@
 .fm-fm .fm-item.is-selected .fm-icon {
   color: var(--text-on-accent);
 }
+.fm-fm .fm-item.is-multi-selected {
+  background: var(--background-modifier-hover);
+  border-left: 3px solid var(--interactive-accent);
+  padding-left: calc(var(--size-4-3) - 3px);
+}
+.fm-fm .fm-item.is-selected.is-multi-selected {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: var(--font-medium);
+  border-left: 3px solid var(--text-on-accent);
+}
+.fm-fm .fm-checkbox {
+  display: inline-flex;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  align-items: center;
+  justify-content: center;
+  color: var(--interactive-accent);
+  font-weight: bold;
+  font-size: var(--font-ui-medium);
+}
+.fm-fm .fm-item.is-selected .fm-checkbox {
+  color: var(--text-on-accent);
+}
 .fm-fm .fm-item.is-selected .fm-name {
   color: var(--text-on-accent);
 }
@@ -197,6 +221,11 @@
 .fm-fm .fm-status-sep {
   color: var(--text-faint);
   margin: 0 var(--size-2-1);
+}
+
+.fm-fm .fm-selection-info {
+  font-weight: var(--font-semibold);
+  color: var(--interactive-accent);
 }
 
 /* Modal input spacing */
