@@ -897,9 +897,6 @@ class FmView extends ItemView {
       this.jumpTop();
       return;
     }
-    this._gTimer = window.setTimeout(() => {
-      this._gTimer = null;
-    }, 400);
     
     // Listen for the next keypress to detect folder shortcuts or tab navigation
     const onKey = (evt) => {
@@ -933,6 +930,12 @@ class FmView extends ItemView {
       this.contentEl.removeEventListener("keydown", onKey, true);
     };
     this.contentEl.addEventListener("keydown", onKey, true);
+    
+    this._gTimer = window.setTimeout(() => {
+      this._gTimer = null;
+      // Remove event listener if timer expires without a second key press
+      this.contentEl.removeEventListener("keydown", onKey, true);
+    }, 400);
   }
 
   handleZ() {
@@ -1779,8 +1782,8 @@ class FmView extends ItemView {
     }
   }
 
-  // Navigate to next tab with File Nav view
-  gotoNextTab() {
+  // Navigate to next/previous tab with File Nav view
+  gotoTab(direction) {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
     if (leaves.length <= 1) {
       new Notice("No other File Nav tabs open");
@@ -1788,31 +1791,30 @@ class FmView extends ItemView {
     }
     
     const currentIndex = leaves.findIndex(leaf => leaf === this.leaf);
-    const nextIndex = (currentIndex + 1) % leaves.length;
-    const nextLeaf = leaves[nextIndex];
-    
-    if (nextLeaf) {
-      this.app.workspace.setActiveLeaf(nextLeaf, { focus: true });
-      new Notice(`Switched to File Nav tab ${nextIndex + 1}/${leaves.length}`);
+    if (currentIndex === -1) {
+      new Notice("Could not find current tab");
+      return;
     }
+    
+    const targetIndex = direction > 0
+      ? (currentIndex + 1) % leaves.length
+      : (currentIndex - 1 + leaves.length) % leaves.length;
+    const targetLeaf = leaves[targetIndex];
+    
+    if (targetLeaf) {
+      this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+      new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
+    }
+  }
+
+  // Navigate to next tab with File Nav view
+  gotoNextTab() {
+    this.gotoTab(1);
   }
 
   // Navigate to previous tab with File Nav view
   gotoPrevTab() {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
-    if (leaves.length <= 1) {
-      new Notice("No other File Nav tabs open");
-      return;
-    }
-    
-    const currentIndex = leaves.findIndex(leaf => leaf === this.leaf);
-    const prevIndex = (currentIndex - 1 + leaves.length) % leaves.length;
-    const prevLeaf = leaves[prevIndex];
-    
-    if (prevLeaf) {
-      this.app.workspace.setActiveLeaf(prevLeaf, { focus: true });
-      new Notice(`Switched to File Nav tab ${prevIndex + 1}/${leaves.length}`);
-    }
+    this.gotoTab(-1);
   }
 
   cycleSearch(step) {
