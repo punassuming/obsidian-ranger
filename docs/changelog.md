@@ -97,12 +97,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- **Go to Common Folders**: New `g` prefix shortcuts for quick navigation
+  - `gh` or `g/` - Go to vault root (home)
+- **Tab Navigation**: Switch between File Nav tabs
+  - `gt` - Go to next File Nav tab
+  - `gT` - Go to previous File Nav tab
+- Enhanced `handleG()` to support multi-key combinations similar to vim
+
 ### Planned
 - Screenshot for documentation
 - Additional keyboard shortcuts
 - Custom color themes
 - Folder bookmarks
-- Rename operation
+- Go to daily notes folder shortcut
 
 [0.6.1]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.6.1
 [0.6.0]: https://github.com/punassuming/obsidian-ranger/releases/tag/0.6.0

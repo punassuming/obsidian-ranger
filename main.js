@@ -25,6 +25,8 @@
     n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
+    gh / g/: go to vault root (home)
+    gt / gT: next/previous File Nav tab
     v / Space: toggle file selection (for multi-file operations)
     Ctrl+a: select all / deselect all
     zd: toggle preview pane
