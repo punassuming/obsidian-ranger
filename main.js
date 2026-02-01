@@ -3,6 +3,8 @@
   
   Features:
     - Vim-style hjkl navigation
+    - Multiple file selection with visual indicators
+    - Batch operations: copy, move, delete multiple files
     - Quick search with / key (highlighted matches)
     - Filter list with f key
     - Real-time markdown preview pane
@@ -12,6 +14,7 @@
     - Quick create notes and folders
     - Context menus for file operations
     - Customizable preview and details panels
+    - Link preservation using Obsidian's internal API
   
   Key Bindings:
     j/k: move selection down/up
@@ -22,15 +25,17 @@
     n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
+    v / Space: toggle file selection (for multi-file operations)
+    Ctrl+a: select all / deselect all
     zd: toggle preview pane
     zp: toggle rendered/text preview
     q or Esc: exit search or close view
     a / A: new note / new folder
     r: rename selected item
     D: duplicate selected item
-    y: copy file/folder
-    x: cut (move) file/folder
-    d: delete file/folder
+    y: copy file(s)/folder(s)
+    x: cut (move) file(s)/folder(s)
+    d: delete file(s)/folder(s) with confirmation
     p: paste
   
   Command: Open File Nav (no default hotkey)
@@ -229,6 +234,8 @@ class FmView extends ItemView {
     // Clipboard for copy/move operations
     this.clipboard = null;
     this.clipboardOperation = null; // 'copy' or 'cut'
+    // Multiple selection support
+    this.selectedFiles = new Set(); // Set of file/folder paths for multi-selection
     // History: remember last selected file in each folder
     this.folderHistory = new Map(); // folderPath -> entryPath
     // Search/filter mode tracking
@@ -418,8 +425,10 @@ class FmView extends ItemView {
           "x",
           "d",
           "p",
+          "v",
+          " ",
         ].includes(k) ||
-        (evt.ctrlKey && (k === "d" || k === "u"))
+        (evt.ctrlKey && (k === "d" || k === "u" || k === "a"))
       ) {
         evt.preventDefault();
         evt.stopPropagation();
@@ -430,6 +439,7 @@ class FmView extends ItemView {
       }
       if (evt.ctrlKey && k === "d") this.move(10);
       else if (evt.ctrlKey && k === "u") this.move(-10);
+      else if (evt.ctrlKey && k === "a") this.selectAll();
       else if (k === "j") this.move(1);
       else if (k === "k") this.move(-1);
       else if (k === "l" || k === "Enter") this.activate();
@@ -455,6 +465,7 @@ class FmView extends ItemView {
       else if (k === "A") this.createNewFolder();
       else if (k === "r") this.renameEntry();
       else if (k === "D") this.duplicateEntry();
+      else if (k === "v" || k === " ") this.toggleSelection();
     }, true);
   }
 
@@ -561,8 +572,19 @@ class FmView extends ItemView {
     // Update CSS class only to avoid full rerender flicker
     const nodes = this.listEl.querySelectorAll(".fm-item");
     nodes.forEach((n, i) => {
+      const entry = this.entries[i];
+      if (!entry) return;
+      
+      // Update current selection indicator
       if (i === this.selectedIndex) n.addClass("is-selected");
       else n.removeClass("is-selected");
+      
+      // Update multi-selection indicator
+      if (this.selectedFiles.has(entry.path)) {
+        n.addClass("is-multi-selected");
+      } else {
+        n.removeClass("is-multi-selected");
+      }
     });
     this.updateWindowTitle();
   }
@@ -612,6 +634,8 @@ class FmView extends ItemView {
         (c) => c.path === prev.path,
       );
       this.selectedIndex = idx >= 0 ? idx : 0;
+      // Clear multi-selection when navigating
+      this.clearSelection();
       this.render();
     }
   }
@@ -626,6 +650,8 @@ class FmView extends ItemView {
       this.selectedIndex = 0;
       // Clear search on folder change
       if (this.searchActive) this.exitSearchMode(false);
+      // Clear multi-selection when navigating
+      this.clearSelection();
       this.render();
     } else if (entry instanceof TFile) {
       // Open file in this leaf (replaces the view)
@@ -767,6 +793,14 @@ class FmView extends ItemView {
     this.entries.forEach((entry, idx) => {
       const item = this.listEl.createEl("div", { cls: "fm-item" });
       if (idx === this.selectedIndex) item.addClass("is-selected");
+      if (this.selectedFiles.has(entry.path)) item.addClass("is-multi-selected");
+
+      // Add checkbox indicator for multi-selected items
+      if (this.selectedFiles.has(entry.path)) {
+        const checkbox = item.createEl("span", { cls: "fm-checkbox" });
+        checkbox.textContent = "✓";
+        checkbox.setAttr("aria-hidden", "true");
+      }
 
       const icon = item.createEl("span", { cls: "fm-icon" });
       setEntryIcon(icon, entry);
@@ -901,39 +935,167 @@ class FmView extends ItemView {
     this.pasteEntry();
   }
 
-  copyEntry() {
+  toggleSelection() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
-    this.clipboard = entry;
+    if (this.selectedFiles.has(entry.path)) {
+      this.selectedFiles.delete(entry.path);
+    } else {
+      this.selectedFiles.add(entry.path);
+    }
+    this.renderSelectionOnly();
+    this.renderStatusBar();
+  }
+
+  selectAll() {
+    if (!this.entries.length) return;
+    // Toggle: if all selected, clear; otherwise select all
+    const allSelected = this.entries.every(e => this.selectedFiles.has(e.path));
+    if (allSelected) {
+      this.selectedFiles.clear();
+    } else {
+      this.entries.forEach(e => this.selectedFiles.add(e.path));
+    }
+    this.render();
+  }
+
+  clearSelection() {
+    this.selectedFiles.clear();
+    this.renderSelectionOnly();
+    this.renderStatusBar();
+  }
+
+  getSelectedEntries() {
+    // Return selected files if any, otherwise current entry
+    if (this.selectedFiles.size > 0) {
+      return this.entries.filter(e => this.selectedFiles.has(e.path));
+    }
+    if (this.entries.length > 0) {
+      return [this.entries[this.selectedIndex]];
+    }
+    return [];
+  }
+
+  copyEntry() {
+    const entries = this.getSelectedEntries();
+    if (entries.length === 0) return;
+    
+    this.clipboard = entries;
     this.clipboardOperation = "copy";
-    // Visual feedback
-    new Notice(`Copied: ${entry.name}`);
+    
+    if (entries.length === 1) {
+      new Notice(`Copied: ${entries[0].name}`);
+    } else {
+      new Notice(`Copied ${entries.length} items`);
+    }
   }
 
   cutEntry() {
-    if (!this.entries.length) return;
-    const entry = this.entries[this.selectedIndex];
-    this.clipboard = entry;
+    const entries = this.getSelectedEntries();
+    if (entries.length === 0) return;
+    
+    this.clipboard = entries;
     this.clipboardOperation = "cut";
-    // Visual feedback
-    new Notice(`Cut: ${entry.name} (ready to move)`);
+    
+    if (entries.length === 1) {
+      new Notice(`Cut: ${entries[0].name} (ready to move)`);
+    } else {
+      new Notice(`Cut ${entries.length} items (ready to move)`);
+    }
   }
 
   async deleteEntry() {
-    if (!this.entries.length) return;
-    const entry = this.entries[this.selectedIndex];
-    const isFolder = entry instanceof TFolder;
-    const label = isFolder ? "folder" : "file";
+    const entries = this.getSelectedEntries();
+    if (entries.length === 0) return;
+
     const canTrash = typeof this.app.fileManager?.trashFile === "function";
     const actionLabel = canTrash ? "Move to trash" : "Delete";
-    const confirmed = confirm(
-      `${actionLabel} ${label} ${entry.path}${
-        isFolder ? " and all contents" : ""
-      }?`,
-    );
+    
+    // Show custom confirmation modal with details
+    const confirmed = await this.showDeleteConfirmation(entries, actionLabel);
     if (!confirmed) return;
-    await this.trashOrDeleteEntry(entry, isFolder);
+
+    // Delete all selected entries
+    for (const entry of entries) {
+      const isFolder = entry instanceof TFolder;
+      await this.trashOrDeleteEntry(entry, isFolder);
+    }
+    
+    // Clear selection after delete
+    this.clearSelection();
     this.render();
+    
+    if (entries.length === 1) {
+      new Notice(`${actionLabel}d: ${entries[0].name}`);
+    } else {
+      new Notice(`${actionLabel}d ${entries.length} items`);
+    }
+  }
+
+  async showDeleteConfirmation(entries, actionLabel) {
+    return new Promise((resolve) => {
+      let resolved = false;
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(`${actionLabel} ${entries.length} item${entries.length === 1 ? '' : 's'}?`);
+      
+      const contentEl = modal.contentEl;
+      contentEl.empty();
+      
+      const desc = contentEl.createEl("p", {
+        text: `Are you sure you want to ${actionLabel.toLowerCase()} the following ${entries.length === 1 ? 'item' : 'items'}?`,
+      });
+      desc.style.marginBottom = "10px";
+      
+      // Show list of items to be deleted
+      const list = contentEl.createEl("ul", { cls: "fm-delete-list" });
+      list.style.maxHeight = "200px";
+      list.style.overflow = "auto";
+      list.style.marginBottom = "15px";
+      list.style.paddingLeft = "20px";
+      
+      entries.forEach(entry => {
+        const isFolder = entry instanceof TFolder;
+        const icon = isFolder ? "📁" : "📄";
+        list.createEl("li", { 
+          text: `${icon} ${entry.path}${isFolder ? ' (and all contents)' : ''}` 
+        });
+      });
+      
+      const warning = contentEl.createEl("p", {
+        text: "This action cannot be easily undone.",
+        cls: "mod-warning"
+      });
+      warning.style.color = "var(--text-error)";
+      warning.style.fontWeight = "bold";
+      warning.style.marginBottom = "15px";
+      
+      const buttonContainer = contentEl.createEl("div", { cls: "fm-modal-buttons" });
+      
+      const cancelBtn = new ButtonComponent(buttonContainer)
+        .setButtonText("Cancel")
+        .onClick(() => {
+          resolved = true;
+          modal.close();
+          resolve(false);
+        });
+      
+      const deleteBtn = new ButtonComponent(buttonContainer)
+        .setButtonText(actionLabel)
+        .setWarning()
+        .onClick(() => {
+          resolved = true;
+          modal.close();
+          resolve(true);
+        });
+      
+      modal.onClose = () => {
+        if (!resolved) {
+          resolve(false);
+        }
+      };
+      
+      modal.open();
+    });
   }
 
   async trashOrDeleteEntry(entry, isFolder) {
@@ -952,25 +1114,142 @@ class FmView extends ItemView {
       return;
     }
 
-    const source = this.clipboard;
+    const sources = Array.isArray(this.clipboard) ? this.clipboard : [this.clipboard];
     const destFolder = this.currentFolder;
+    const operation = this.clipboardOperation;
+    
+    // Check if confirmation is needed based on settings
+    const needsConfirmation = this.shouldConfirmPaste(sources, operation);
+    
+    if (needsConfirmation) {
+      const confirmed = await this.showPasteConfirmation(sources, operation, destFolder);
+      if (!confirmed) return;
+    }
 
-    // Use helper to check if we're pasting in the same location
-    if (this.isSameFolderCopy(source, destFolder)) {
-      // Need to create a copy with a different name
-      await this.copyFileWithNewName(source, destFolder);
-    } else if (source instanceof TFolder && source.path === destFolder.path) {
-      new Notice("Cannot paste folder into itself");
-      return;
-    } else if (this.clipboardOperation === "copy") {
-      await this.copyToFolder(source, destFolder);
-    } else if (this.clipboardOperation === "cut") {
-      await this.moveToFolder(source, destFolder);
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const source of sources) {
+      let success = false;
+      try {
+        // Use helper to check if we're pasting in the same location
+        if (this.isSameFolderCopy(source, destFolder)) {
+          // Need to create a copy with a different name
+          success = await this.copyFileWithNewName(source, destFolder);
+        } else if (source instanceof TFolder && source.path === destFolder.path) {
+          new Notice(`Cannot paste folder ${source.name} into itself`);
+          failCount++;
+          continue;
+        } else if (operation === "copy") {
+          success = await this.copyToFolder(source, destFolder);
+        } else if (operation === "cut") {
+          success = await this.moveToFolder(source, destFolder);
+        }
+        
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        new Notice(`Failed to paste ${source.name}: ${err.message}`);
+        failCount++;
+      }
+    }
+    
+    // Clear clipboard after cut operation
+    if (operation === "cut") {
       this.clipboard = null;
       this.clipboardOperation = null;
     }
-
+    
+    // Clear selection after paste
+    this.clearSelection();
     this.render();
+    
+    // Show summary
+    if (sources.length === 1) {
+      if (successCount > 0) {
+        const verb = operation === "copy" ? "Copied" : "Moved";
+        new Notice(`${verb}: ${sources[0].name}`);
+      }
+    } else {
+      if (successCount > 0 && failCount === 0) {
+        const verb = operation === "copy" ? "Copied" : "Moved";
+        new Notice(`${verb} ${successCount} items`);
+      } else if (successCount > 0) {
+        const verb = operation === "copy" ? "Copied" : "Moved";
+        new Notice(`${verb} ${successCount} items, ${failCount} failed`);
+      }
+    }
+  }
+
+  shouldConfirmPaste(sources, operation) {
+    // Check settings for copy/move confirmation
+    const settings = this.plugin?.settings;
+    if (!settings) return false;
+    
+    if (operation === "copy" && settings.confirmCopy) return true;
+    if (operation === "cut" && settings.confirmMove) return true;
+    
+    return false;
+  }
+
+  async showPasteConfirmation(sources, operation, destFolder) {
+    return new Promise((resolve) => {
+      let resolved = false;
+      const modal = new Modal(this.app);
+      const verb = operation === "copy" ? "Copy" : "Move";
+      modal.titleEl.setText(`${verb} ${sources.length} item${sources.length === 1 ? '' : 's'}?`);
+      
+      const contentEl = modal.contentEl;
+      contentEl.empty();
+      
+      const desc = contentEl.createEl("p", {
+        text: `${verb} the following ${sources.length === 1 ? 'item' : 'items'} to ${destFolder.path || '/'}?`,
+      });
+      desc.style.marginBottom = "10px";
+      
+      // Show list of items
+      const list = contentEl.createEl("ul", { cls: "fm-paste-list" });
+      list.style.maxHeight = "200px";
+      list.style.overflow = "auto";
+      list.style.marginBottom = "15px";
+      list.style.paddingLeft = "20px";
+      
+      sources.forEach(source => {
+        const isFolder = source instanceof TFolder;
+        const icon = isFolder ? "📁" : "📄";
+        list.createEl("li", { text: `${icon} ${source.path}` });
+      });
+      
+      const buttonContainer = contentEl.createEl("div", { cls: "fm-modal-buttons" });
+      
+      const cancelBtn = new ButtonComponent(buttonContainer)
+        .setButtonText("Cancel")
+        .onClick(() => {
+          resolved = true;
+          modal.close();
+          resolve(false);
+        });
+      
+      const confirmBtn = new ButtonComponent(buttonContainer)
+        .setButtonText(verb)
+        .setCta()
+        .onClick(() => {
+          resolved = true;
+          modal.close();
+          resolve(true);
+        });
+      
+      modal.onClose = () => {
+        if (!resolved) {
+          resolve(false);
+        }
+      };
+      
+      modal.open();
+    });
   }
 
   isSameFolderCopy(source, destFolder) {
@@ -1004,15 +1283,17 @@ class FmView extends ItemView {
 
     if (counter >= MAX_ATTEMPTS) {
       new Notice("Failed to find available filename");
-      return;
+      return false;
     }
 
     try {
       const content = await this.app.vault.read(file);
       await this.app.vault.create(newPath, content);
       new Notice(`Copied to: ${newName}`);
+      return true;
     } catch (err) {
       new Notice(`Failed to copy: ${err.message}`);
+      return false;
     }
   }
 
@@ -1025,7 +1306,7 @@ class FmView extends ItemView {
     // Check if destination already exists
     if (this.app.vault.getAbstractFileByPath(newPath)) {
       new Notice(`Already exists: ${source.name}`);
-      return;
+      return false;
     }
 
     try {
@@ -1037,8 +1318,10 @@ class FmView extends ItemView {
         await this.copyFolderRecursive(source, newPath);
         new Notice(`Copied folder: ${source.name}`);
       }
+      return true;
     } catch (err) {
       new Notice(`Failed to copy: ${err.message}`);
+      return false;
     }
   }
 
@@ -1067,14 +1350,16 @@ class FmView extends ItemView {
     // Check if destination already exists
     if (this.app.vault.getAbstractFileByPath(newPath)) {
       new Notice(`Already exists: ${source.name}`);
-      return;
+      return false;
     }
 
     try {
       await this.app.vault.rename(source, newPath);
       new Notice(`Moved: ${source.name}`);
+      return true;
     } catch (err) {
       new Notice(`Failed to move: ${err.message}`);
+      return false;
     }
   }
 
@@ -1486,11 +1771,23 @@ class FmView extends ItemView {
   renderStatusBar() {
     if (!this.statusEl) return;
     this.statusEl.empty();
+    
+    // Show selection count if any files are selected
+    if (this.selectedFiles.size > 0) {
+      const selectionInfo = this.statusEl.createSpan({ 
+        cls: "fm-selection-info",
+        text: `${this.selectedFiles.size} selected` 
+      });
+      this.statusEl.createSpan({ cls: "fm-status-sep", text: "•" });
+    }
+    
     const hints = [
       { keys: ["j", "k"], desc: "navigate" },
       { keys: ["h", "l"], desc: "parent/open" },
       { keys: ["/"], desc: "search" },
       { keys: ["f"], desc: "filter" },
+      { keys: ["v", "Space"], desc: "select" },
+      { keys: ["Ctrl+a"], desc: "select all" },
       { keys: ["a", "A"], desc: "new note/folder" },
       { keys: ["r"], desc: "rename" },
       { keys: ["D"], desc: "duplicate" },
@@ -1618,6 +1915,8 @@ const DEFAULT_SETTINGS = {
   showHiddenFolders: true,
   showFileExtensions: true,
   sortFoldersFirst: true,
+  confirmCopy: false,
+  confirmMove: false,
 };
 
 class FmPlugin extends Plugin {
@@ -1807,6 +2106,32 @@ class FmSettingTab extends PluginSettingTab {
               view.sortFoldersFirst = v;
               view.render();
             }
+          }),
+      );
+
+    containerEl.createEl("h4", { text: "Multi-file operations" });
+
+    new Setting(containerEl)
+      .setName("Confirm before copying")
+      .setDesc("Show confirmation dialog when copying files (delete always requires confirmation)")
+      .addToggle((t) =>
+        t
+          .setValue(!!this.plugin.settings.confirmCopy)
+          .onChange(async (v) => {
+            this.plugin.settings.confirmCopy = v;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Confirm before moving")
+      .setDesc("Show confirmation dialog when moving files (delete always requires confirmation)")
+      .addToggle((t) =>
+        t
+          .setValue(!!this.plugin.settings.confirmMove)
+          .onChange(async (v) => {
+            this.plugin.settings.confirmMove = v;
+            await this.plugin.saveSettings();
           }),
       );
   }
