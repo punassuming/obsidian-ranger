@@ -903,7 +903,7 @@ class FmView extends ItemView {
       if (!this._gTimer) return;
       const k = evt.key;
       
-      if (k === "h" || k === "H") {
+      if (k === "h") {
         // gh - go to vault root (home)
         evt.preventDefault();
         evt.stopPropagation();
@@ -1773,12 +1773,12 @@ class FmView extends ItemView {
   // Navigate to vault root (gh or g/)
   gotoVaultRoot() {
     const root = this.app.vault.getRoot();
-    if (root && root instanceof TFolder) {
+    if (root) {
       this.currentFolder = root;
       this.selectedIndex = 0;
       if (this.searchActive) this.exitSearchMode(false);
       this.render();
-      new Notice("Navigated to vault root");
+      new Notice("Switched to vault root");
     }
   }
 
