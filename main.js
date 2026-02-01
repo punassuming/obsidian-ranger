@@ -889,7 +889,7 @@ class FmView extends ItemView {
   // Jump handlers
   handleG() {
     if (this._gTimer) {
-      // second 'g'
+      // second 'g' - jump to top
       window.clearTimeout(this._gTimer);
       this._gTimer = null;
       this.jumpTop();
@@ -898,6 +898,39 @@ class FmView extends ItemView {
     this._gTimer = window.setTimeout(() => {
       this._gTimer = null;
     }, 400);
+    
+    // Listen for the next keypress to detect folder shortcuts or tab navigation
+    const onKey = (evt) => {
+      if (!this._gTimer) return;
+      const k = evt.key;
+      
+      if (k === "h" || k === "H") {
+        // gh - go to vault root (home)
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoVaultRoot();
+      } else if (k === "/") {
+        // g/ - go to vault root (alternative)
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoVaultRoot();
+      } else if (k === "t") {
+        // gt - next tab with File Nav view
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoNextTab();
+      } else if (k === "T") {
+        // gT - previous tab with File Nav view
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoPrevTab();
+      }
+      
+      window.clearTimeout(this._gTimer);
+      this._gTimer = null;
+      this.contentEl.removeEventListener("keydown", onKey, true);
+    };
+    this.contentEl.addEventListener("keydown", onKey, true);
   }
 
   handleZ() {
@@ -1730,6 +1763,54 @@ class FmView extends ItemView {
     const node = this.listEl.querySelectorAll(".fm-item")[this.selectedIndex];
     if (node) node.scrollIntoView({ block: "nearest" });
     this.renderPreview();
+  }
+
+  // Navigate to vault root (gh or g/)
+  gotoVaultRoot() {
+    const root = this.app.vault.getRoot();
+    if (root && root instanceof TFolder) {
+      this.currentFolder = root;
+      this.selectedIndex = 0;
+      if (this.searchActive) this.exitSearchMode(false);
+      this.render();
+      new Notice("Navigated to vault root");
+    }
+  }
+
+  // Navigate to next tab with File Nav view
+  gotoNextTab() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    if (leaves.length <= 1) {
+      new Notice("No other File Nav tabs open");
+      return;
+    }
+    
+    const currentIndex = leaves.findIndex(leaf => leaf === this.leaf);
+    const nextIndex = (currentIndex + 1) % leaves.length;
+    const nextLeaf = leaves[nextIndex];
+    
+    if (nextLeaf) {
+      this.app.workspace.setActiveLeaf(nextLeaf, { focus: true });
+      new Notice(`Switched to File Nav tab ${nextIndex + 1}/${leaves.length}`);
+    }
+  }
+
+  // Navigate to previous tab with File Nav view
+  gotoPrevTab() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    if (leaves.length <= 1) {
+      new Notice("No other File Nav tabs open");
+      return;
+    }
+    
+    const currentIndex = leaves.findIndex(leaf => leaf === this.leaf);
+    const prevIndex = (currentIndex - 1 + leaves.length) % leaves.length;
+    const prevLeaf = leaves[prevIndex];
+    
+    if (prevLeaf) {
+      this.app.workspace.setActiveLeaf(prevLeaf, { focus: true });
+      new Notice(`Switched to File Nav tab ${prevIndex + 1}/${leaves.length}`);
+    }
   }
 
   cycleSearch(step) {
