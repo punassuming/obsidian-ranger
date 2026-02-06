@@ -25,6 +25,9 @@
     n / N: cycle next/prev search match
     Ctrl+d / Ctrl+u: move down/up by 10 items
     gg / G: jump to top/bottom
+    gh / g/: go to vault root (home)
+    gt / gT: next/previous File Nav tab
+    T: open new File Nav tab
     v / Space: toggle file selection (for multi-file operations)
     Ctrl+a: select all / deselect all
     zd: toggle preview pane
@@ -465,6 +468,7 @@ class FmView extends ItemView {
       else if (k === "A") this.createNewFolder();
       else if (k === "r") this.renameEntry();
       else if (k === "D") this.duplicateEntry();
+      else if (k === "T") this.openNewTab();
       else if (k === "v" || k === " ") this.toggleSelection();
     }, true);
   }
@@ -889,14 +893,50 @@ class FmView extends ItemView {
   // Jump handlers
   handleG() {
     if (this._gTimer) {
-      // second 'g'
+      // second 'g' - jump to top
       window.clearTimeout(this._gTimer);
       this._gTimer = null;
       this.jumpTop();
       return;
     }
+    
+    // Listen for the next keypress to detect folder shortcuts or tab navigation
+    const onKey = (evt) => {
+      if (!this._gTimer) return;
+      const k = evt.key;
+      
+      if (k === "h") {
+        // gh - go to vault root (home)
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoVaultRoot();
+      } else if (k === "/") {
+        // g/ - go to vault root (alternative)
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoVaultRoot();
+      } else if (k === "t") {
+        // gt - next tab with File Nav view
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoNextTab();
+      } else if (k === "T") {
+        // gT - previous tab with File Nav view
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.gotoPrevTab();
+      }
+      
+      window.clearTimeout(this._gTimer);
+      this._gTimer = null;
+      this.contentEl.removeEventListener("keydown", onKey, true);
+    };
+    this.contentEl.addEventListener("keydown", onKey, true);
+    
     this._gTimer = window.setTimeout(() => {
       this._gTimer = null;
+      // Remove event listener if timer expires without a second key press
+      this.contentEl.removeEventListener("keydown", onKey, true);
     }, 400);
   }
 
@@ -1732,6 +1772,70 @@ class FmView extends ItemView {
     this.renderPreview();
   }
 
+  // Navigate to vault root (gh or g/)
+  gotoVaultRoot() {
+    const root = this.app.vault.getRoot();
+    if (root) {
+      this.currentFolder = root;
+      this.selectedIndex = 0;
+      if (this.searchActive) this.exitSearchMode(false);
+      this.render();
+      new Notice("Switched to vault root");
+    }
+  }
+
+  // Navigate to next/previous tab with File Nav view
+  gotoTab(direction) {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    if (leaves.length <= 1) {
+      new Notice("No other File Nav tabs open");
+      return;
+    }
+    
+    const currentIndex = leaves.findIndex(leaf => leaf === this.leaf);
+    if (currentIndex === -1) {
+      new Notice("Could not find current tab");
+      return;
+    }
+    
+    const targetIndex = direction > 0
+      ? (currentIndex + 1) % leaves.length
+      : (currentIndex - 1 + leaves.length) % leaves.length;
+    const targetLeaf = leaves[targetIndex];
+    
+    if (targetLeaf) {
+      this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+      new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
+    }
+  }
+
+  // Navigate to next tab with File Nav view
+  gotoNextTab() {
+    this.gotoTab(1);
+  }
+
+  // Navigate to previous tab with File Nav view
+  gotoPrevTab() {
+    this.gotoTab(-1);
+  }
+
+  // Open a new File Nav tab
+  async openNewTab() {
+    const startFolder = this.currentFolder || this.app.vault.getRoot();
+    const leaf = this.app.workspace.getLeaf(true); // true = split/new tab
+    await leaf.setViewState({
+      type: VIEW_TYPE_FM,
+      active: true,
+      state: {
+        startFolder: startFolder.path,
+        selectFile: null,
+        prevFile: null,
+      },
+    });
+    this.app.workspace.revealLeaf(leaf);
+    new Notice("Opened File Nav in new tab");
+  }
+
   cycleSearch(step) {
     const activeSearchValue =
       this.searchMode === "search"
@@ -1935,6 +2039,12 @@ class FmPlugin extends Plugin {
       name: "Open File Nav",
       callback: () => this.openFileNav(),
     });
+
+    this.addCommand({
+      id: "open-fm-file-manager-new-tab",
+      name: "Open File Nav in new tab",
+      callback: () => this.openFileNavInNewTab(),
+    });
   }
 
   onunload() {
@@ -1957,6 +2067,22 @@ class FmPlugin extends Plugin {
   async openFileNav() {
     const activeFile = this.app.workspace.getActiveFile();
     const leaf = this.app.workspace.getLeaf(false);
+    const startFolder = activeFile?.parent || this.app.vault.getRoot();
+    await leaf.setViewState({
+      type: VIEW_TYPE_FM,
+      active: true,
+      state: {
+        startFolder: startFolder.path,
+        selectFile: activeFile?.path || null,
+        prevFile: activeFile?.path || null,
+      },
+    });
+    this.app.workspace.revealLeaf(leaf);
+  }
+
+  async openFileNavInNewTab() {
+    const activeFile = this.app.workspace.getActiveFile();
+    const leaf = this.app.workspace.getLeaf(true); // true = split/new tab
     const startFolder = activeFile?.parent || this.app.vault.getRoot();
     await leaf.setViewState({
       type: VIEW_TYPE_FM,
