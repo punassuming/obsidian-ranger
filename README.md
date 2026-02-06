@@ -42,7 +42,8 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 ### Opening File Nav - Ranger for Obsidian
 
 - Press `-` (hyphen) to open File Nav - Ranger for Obsidian in the current pane
-- Or use Command Palette: "Open File Nav - Ranger for Obsidian"
+- Or use Command Palette: "Open File Nav" (current pane) or "Open File Nav in new tab"
+- Press `T` while in File Nav to open a new File Nav tab
 
 ### Keyboard Shortcuts
 
@@ -59,6 +60,7 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `gh` / `g/` | Go to vault root (home) |
 | `gt` | Go to next File Nav tab |
 | `gT` | Go to previous File Nav tab |
+| `T` | Open new File Nav tab |
 | `Ctrl+d` / `Ctrl+u` | Move down / up by 10 items |
 | `v` / `Space` | Toggle file selection (for multi-file operations) |
 | `Ctrl+a` | Select all / Deselect all |

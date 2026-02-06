@@ -103,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tab Navigation**: Switch between File Nav tabs
   - `gt` - Go to next File Nav tab
   - `gT` - Go to previous File Nav tab
+  - `T` - Open new File Nav tab in split/new pane
+- **New Command**: "Open File Nav in new tab" available in Command Palette
 - Enhanced `handleG()` to support multi-key combinations similar to vim
 
 ### Planned

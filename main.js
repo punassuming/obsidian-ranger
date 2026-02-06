@@ -27,6 +27,7 @@
     gg / G: jump to top/bottom
     gh / g/: go to vault root (home)
     gt / gT: next/previous File Nav tab
+    T: open new File Nav tab
     v / Space: toggle file selection (for multi-file operations)
     Ctrl+a: select all / deselect all
     zd: toggle preview pane
@@ -467,6 +468,7 @@ class FmView extends ItemView {
       else if (k === "A") this.createNewFolder();
       else if (k === "r") this.renameEntry();
       else if (k === "D") this.duplicateEntry();
+      else if (k === "T") this.openNewTab();
       else if (k === "v" || k === " ") this.toggleSelection();
     }, true);
   }
@@ -1817,6 +1819,22 @@ class FmView extends ItemView {
     this.gotoTab(-1);
   }
 
+  // Open a new File Nav tab
+  async openNewTab() {
+    const leaf = this.app.workspace.getLeaf(true); // true = split/new tab
+    await leaf.setViewState({
+      type: VIEW_TYPE_FM,
+      active: true,
+      state: {
+        startFolder: this.currentFolder.path,
+        selectFile: null,
+        prevFile: null,
+      },
+    });
+    this.app.workspace.revealLeaf(leaf);
+    new Notice("Opened File Nav in new tab");
+  }
+
   cycleSearch(step) {
     const activeSearchValue =
       this.searchMode === "search"
@@ -2020,6 +2038,12 @@ class FmPlugin extends Plugin {
       name: "Open File Nav",
       callback: () => this.openFileNav(),
     });
+
+    this.addCommand({
+      id: "open-fm-file-manager-new-tab",
+      name: "Open File Nav in new tab",
+      callback: () => this.openFileNavInNewTab(),
+    });
   }
 
   onunload() {
@@ -2042,6 +2066,22 @@ class FmPlugin extends Plugin {
   async openFileNav() {
     const activeFile = this.app.workspace.getActiveFile();
     const leaf = this.app.workspace.getLeaf(false);
+    const startFolder = activeFile?.parent || this.app.vault.getRoot();
+    await leaf.setViewState({
+      type: VIEW_TYPE_FM,
+      active: true,
+      state: {
+        startFolder: startFolder.path,
+        selectFile: activeFile?.path || null,
+        prevFile: activeFile?.path || null,
+      },
+    });
+    this.app.workspace.revealLeaf(leaf);
+  }
+
+  async openFileNavInNewTab() {
+    const activeFile = this.app.workspace.getActiveFile();
+    const leaf = this.app.workspace.getLeaf(true); // true = split/new tab
     const startFolder = activeFile?.parent || this.app.vault.getRoot();
     await leaf.setViewState({
       type: VIEW_TYPE_FM,

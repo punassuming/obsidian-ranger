@@ -18,6 +18,7 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 | `gh` or `g/` | Go to vault root (home) |
 | `gt` | Go to next File Nav tab |
 | `gT` | Go to previous File Nav tab |
+| `T` | Open new File Nav tab |
 
 ## File Operations
 
