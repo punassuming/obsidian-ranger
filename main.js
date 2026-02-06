@@ -1821,12 +1821,13 @@ class FmView extends ItemView {
 
   // Open a new File Nav tab
   async openNewTab() {
+    const startFolder = this.currentFolder || this.app.vault.getRoot();
     const leaf = this.app.workspace.getLeaf(true); // true = split/new tab
     await leaf.setViewState({
       type: VIEW_TYPE_FM,
       active: true,
       state: {
-        startFolder: this.currentFolder.path,
+        startFolder: startFolder.path,
         selectFile: null,
         prevFile: null,
       },
