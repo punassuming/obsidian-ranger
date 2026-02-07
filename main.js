@@ -207,6 +207,37 @@ const IMAGE_EXTENSIONS = [
   "jxl",
 ];
 
+const G_CHORD_OPTIONS = [
+  { keys: ["g", "g"], desc: "top", action: (view) => view.jumpTop() },
+  {
+    keys: ["g", "h"],
+    desc: "vault root (home)",
+    action: (view) => view.gotoVaultRoot(),
+  },
+  {
+    keys: ["g", "/"],
+    desc: "vault root (slash)",
+    action: (view) => view.gotoVaultRoot(),
+  },
+  { keys: ["g", "t"], desc: "next tab", action: (view) => view.gotoNextTab() },
+  {
+    keys: ["g", "T"],
+    desc: "previous tab",
+    action: (view) => view.gotoPrevTab(),
+  },
+];
+const Z_CHORD_OPTIONS = [
+  {
+    keys: ["z", "d"],
+    desc: "toggle panes",
+    action: (view) => view.togglePreviewPane(),
+  },
+  {
+    keys: ["z", "p"],
+    desc: "preview mode",
+    action: (view) => view.togglePreviewMode(),
+  },
+];
 class FmView extends ItemView {
   constructor(leaf, app, plugin) {
     super(leaf);
@@ -244,6 +275,9 @@ class FmView extends ItemView {
     // Search/filter mode tracking
     this.searchMode = null; // 'search' or 'filter'
     this.filterActive = false;
+    this.chordOverlayEl = null;
+    this.chordOverlayTitleEl = null;
+    this.chordOverlayListEl = null;
   }
 
   getViewType() {
@@ -384,6 +418,36 @@ class FmView extends ItemView {
     this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
+      if (this._gTimer) {
+        // Preserve case to distinguish gt and gT.
+        const option = G_CHORD_OPTIONS.find(
+          (entry) => entry.keys[1] === k,
+        );
+        if (option) {
+          evt.preventDefault();
+          evt.stopPropagation();
+          window.clearTimeout(this._gTimer);
+          this._gTimer = null;
+          this.hideChordOverlay();
+          option.action(this);
+          return;
+        }
+      }
+      if (this._zTimer) {
+        const normalizedKey = k.toLowerCase();
+        const option = Z_CHORD_OPTIONS.find(
+          (entry) => entry.keys[1] === normalizedKey,
+        );
+        if (option) {
+          evt.preventDefault();
+          evt.stopPropagation();
+          window.clearTimeout(this._zTimer);
+          this._zTimer = null;
+          this.hideChordOverlay();
+          option.action(this);
+          return;
+        }
+      }
       if (activeInSearch) {
         // While typing, still honor Ctrl+j/k to move within filtered list
         if ((evt.ctrlKey || evt.metaKey) && (k === "j" || k === "J")) {
@@ -896,48 +960,16 @@ class FmView extends ItemView {
       // second 'g' - jump to top
       window.clearTimeout(this._gTimer);
       this._gTimer = null;
+      this.hideChordOverlay();
       this.jumpTop();
       return;
     }
     
-    // Listen for the next keypress to detect folder shortcuts or tab navigation
-    const onKey = (evt) => {
-      if (!this._gTimer) return;
-      const k = evt.key;
-      
-      if (k === "h") {
-        // gh - go to vault root (home)
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.gotoVaultRoot();
-      } else if (k === "/") {
-        // g/ - go to vault root (alternative)
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.gotoVaultRoot();
-      } else if (k === "t") {
-        // gt - next tab with File Nav view
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.gotoNextTab();
-      } else if (k === "T") {
-        // gT - previous tab with File Nav view
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.gotoPrevTab();
-      }
-      
-      window.clearTimeout(this._gTimer);
-      this._gTimer = null;
-      this.contentEl.removeEventListener("keydown", onKey, true);
-    };
-    this.contentEl.addEventListener("keydown", onKey, true);
-    
     this._gTimer = window.setTimeout(() => {
       this._gTimer = null;
-      // Remove event listener if timer expires without a second key press
-      this.contentEl.removeEventListener("keydown", onKey, true);
+      this.hideChordOverlay();
     }, 400);
+    this.showChordOverlay("g", G_CHORD_OPTIONS);
   }
 
   handleZ() {
@@ -945,29 +977,75 @@ class FmView extends ItemView {
       // second key in chord
       window.clearTimeout(this._zTimer);
       this._zTimer = null;
+      this.hideChordOverlay();
       return;
     }
     this._zTimer = window.setTimeout(() => {
       this._zTimer = null;
+      this.hideChordOverlay();
     }, 400);
-    // Listen for the next keypress on the host to detect 'p' or 'd'
-    const onKey = (evt) => {
-      if (!this._zTimer) return;
-      const k = evt.key;
-      if (k === "p" || k === "P") {
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.togglePreviewMode();
-      } else if (k === "d" || k === "D") {
-        evt.preventDefault();
-        evt.stopPropagation();
-        this.togglePreviewPane();
-      }
-      window.clearTimeout(this._zTimer);
-      this._zTimer = null;
-      this.contentEl.removeEventListener("keydown", onKey, true);
-    };
-    this.contentEl.addEventListener("keydown", onKey, true);
+    this.showChordOverlay("z", Z_CHORD_OPTIONS);
+  }
+
+  showChordOverlay(label, options) {
+    if (!this.hostEl) return;
+    if (!this.chordOverlayEl) {
+      this.chordOverlayEl = this.hostEl.createDiv({
+        cls: "fm-chord-overlay is-hidden",
+        attr: { role: "status", "aria-live": "polite" },
+      });
+      const panel = this.chordOverlayEl.createDiv({
+        cls: "fm-chord-overlay-panel",
+        attr: { role: "dialog", "aria-label": "Key combinations" },
+      });
+      this.chordOverlayTitleEl = panel.createDiv({
+        cls: "fm-chord-overlay-title",
+      });
+      this.chordOverlayListEl = panel.createDiv({
+        cls: "fm-chord-overlay-list",
+      });
+    }
+    this.chordOverlayTitleEl.setText(`${label} key combinations`);
+    this.chordOverlayListEl.empty();
+    options.forEach((option) => {
+      const item = this.chordOverlayListEl.createDiv({
+        cls: "fm-chord-overlay-item",
+      });
+      const keysEl = item.createDiv({ cls: "fm-chord-overlay-keys" });
+      option.keys.forEach((key) => {
+        const ariaLabel =
+          key === "/"
+            ? "slash"
+            : key === " "
+              ? "space"
+              : key.toUpperCase() === key && key.toLowerCase() !== key
+                ? `shift+${key.toLowerCase()}`
+                : key;
+        keysEl.createEl("kbd", {
+          cls: "fm-chord-overlay-key",
+          text: key,
+          attr: { "aria-label": ariaLabel },
+        });
+      });
+      item.createSpan({ cls: "fm-chord-overlay-desc", text: option.desc });
+    });
+    this.chordOverlayEl.removeClass("is-hidden");
+  }
+
+  hideChordOverlay() {
+    if (this.chordOverlayEl) {
+      this.chordOverlayEl.addClass("is-hidden");
+    }
+  }
+
+  focusNavigation() {
+    if (this.listEl) {
+      this.listEl.focus({ preventScroll: true });
+      return;
+    }
+    if (this.hostEl) {
+      this.hostEl.focus({ preventScroll: true });
+    }
   }
 
   handleP() {
@@ -1805,6 +1883,10 @@ class FmView extends ItemView {
     
     if (targetLeaf) {
       this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+      const targetView = targetLeaf.view;
+      if (targetView instanceof FmView) {
+        window.requestAnimationFrame(() => targetView.focusNavigation());
+      }
       new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
     }
   }
