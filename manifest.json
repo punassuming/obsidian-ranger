@@ -1,12 +1,11 @@
 {
-  "id": "file-nav-ranger",
-  "name": "File Nav - Ranger for Obsidian",
-  "version": "0.6.1",
-  "minAppVersion": "1.4.0",
-  "main": "main.js",
-  "css": ["styles.css"],
-  "description": "File navigator with vim-style keyboard navigation and file management operations.",
-  "author": "punassuming",
-  "authorUrl": "https://github.com/punassuming/obsidian-ranger",
-  "isDesktopOnly": true
+	"id": "file-nav-ranger",
+	"name": "File Nav - Ranger for Obsidian",
+	"version": "0.6.1",
+	"minAppVersion": "1.4.0",
+	"description": "File navigator with vim-style keyboard navigation and file management operations.",
+	"author": "punassuming",
+	"authorUrl": "https://github.com/punassuming/obsidian-ranger",
+	"fundingUrl": "https://ko-fi.com/rich_alesi",
+	"isDesktopOnly": true
 }

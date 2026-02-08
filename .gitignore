@@ -1,17 +1,33 @@
-# Node modules
-node_modules/
+# vscode
+.vscode
+
+# Intellij
+*.iml
+.idea
+
+# npm
+node_modules
+
+# Don't include the compiled main.js file in the repo.
+# It's now built from src/main.ts and uploaded to GitHub releases.
+main.js
+
+# Exclude sourcemaps
+*.map
+
+# obsidian
+data.json
+
+# Exclude macOS Finder (System Explorer) View States
+.DS_Store
 
 # Build artifacts
-*.map
 dist/
 
 # OS files
-.DS_Store
 Thumbs.db
 
 # IDE
-.idea/
-.vscode/
 *.swp
 *.swo
 
