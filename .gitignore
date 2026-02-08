@@ -8,6 +8,10 @@
 # npm
 node_modules
 
+# Don't include the compiled main.js file in the repo.
+# It's now built from src/main.ts and uploaded to GitHub releases.
+main.js
+
 # Exclude sourcemaps
 *.map
 
