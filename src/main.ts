@@ -764,7 +764,9 @@ class FmView extends ItemView {
     ) {
       const folderPath = this.currentFolder.path;
       const selectedEntry = this.entries[this.selectedIndex];
-      this.folderHistory.set(folderPath, selectedEntry.path);
+      if (selectedEntry) {
+        this.folderHistory.set(folderPath, selectedEntry.path);
+      }
     }
   }
 
@@ -1132,6 +1134,7 @@ class FmView extends ItemView {
   toggleSelection() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     if (this.selectedFiles.has(entry.path)) {
       this.selectedFiles.delete(entry.path);
     } else {
@@ -1165,7 +1168,8 @@ class FmView extends ItemView {
       return this.entries.filter(e => this.selectedFiles.has(e.path));
     }
     if (this.entries.length > 0) {
-      return [this.entries[this.selectedIndex]];
+      const entry = this.entries[this.selectedIndex];
+      return entry ? [entry] : [];
     }
     return [];
   }
@@ -1178,7 +1182,10 @@ class FmView extends ItemView {
     this.clipboardOperation = "copy";
     
     if (entries.length === 1) {
-      new Notice(`Copied: ${entries[0].name}`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`Copied: ${entry.name}`);
+      }
     } else {
       new Notice(`Copied ${entries.length} items`);
     }
@@ -1192,7 +1199,10 @@ class FmView extends ItemView {
     this.clipboardOperation = "cut";
     
     if (entries.length === 1) {
-      new Notice(`Cut: ${entries[0].name} (ready to move)`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`Cut: ${entry.name} (ready to move)`);
+      }
     } else {
       new Notice(`Cut ${entries.length} items (ready to move)`);
     }
@@ -1220,7 +1230,10 @@ class FmView extends ItemView {
     this.render();
     
     if (entries.length === 1) {
-      new Notice(`${actionLabel}d: ${entries[0].name}`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`${actionLabel}d: ${entry.name}`);
+      }
     } else {
       new Notice(`${actionLabel}d ${entries.length} items`);
     }
@@ -1369,7 +1382,10 @@ class FmView extends ItemView {
     if (sources.length === 1) {
       if (successCount > 0) {
         const verb = operation === "copy" ? "Copied" : "Moved";
-        new Notice(`${verb}: ${sources[0].name}`);
+        const source = sources[0];
+        if (source) {
+          new Notice(`${verb}: ${source.name}`);
+        }
       }
     } else {
       if (successCount > 0 && failCount === 0) {
@@ -1454,7 +1470,10 @@ class FmView extends ItemView {
     });
   }
 
-  isSameFolderCopy(source: Entry, destFolder: TFolder) {
+  isSameFolderCopy(
+    source: Entry,
+    destFolder: TFolder,
+  ): source is TFile {
     return (
       source instanceof TFile &&
       source.parent?.path === destFolder.path &&
@@ -1678,6 +1697,7 @@ class FmView extends ItemView {
   async renameEntry() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     const rawName = prompt("Rename to", entry.name);
     const newName = (rawName || "").trim();
     if (!newName || newName === entry.name) return;
@@ -1700,6 +1720,7 @@ class FmView extends ItemView {
   async duplicateEntry() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     if (entry instanceof TFile) {
       await this.copyFileWithNewName(entry, entry.parent || this.currentFolder);
     } else if (entry instanceof TFolder) {
@@ -2026,8 +2047,10 @@ class FmView extends ItemView {
     if (pos === -1) pos = step > 0 ? -1 : 0;
     pos = (pos + step + matches.length) % matches.length;
     const targetAllIndex = matches[pos]?.i ?? 0;
+    const targetEntry = this.allEntries[targetAllIndex];
+    if (!targetEntry) return;
     const idxInEntries = this.entries.findIndex(
-      (e) => e.path === this.allEntries[targetAllIndex].path,
+      (e) => e.path === targetEntry.path,
     );
     if (idxInEntries >= 0) {
       this.selectedIndex = idxInEntries;
@@ -2089,6 +2112,7 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
 
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     const isFolder = entry instanceof TFolder;
 
     // Details
