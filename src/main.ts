@@ -352,6 +352,8 @@ class FmView extends ItemView {
     this.chordOverlayEl = null;
     this.chordOverlayTitleEl = null;
     this.chordOverlayListEl = null;
+    this._gTimer = null;
+    this._zTimer = null;
   }
 
   getViewType() {
@@ -494,6 +496,15 @@ class FmView extends ItemView {
     this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
+      if (k === "Escape" && (this._gTimer || this._zTimer)) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.cancelChordOverlay();
+        return;
+      }
+      if (this.hasOpenModal()) {
+        return;
+      }
       if (this._gTimer) {
         // Preserve case to distinguish gt and gT.
         const option = G_CHORD_OPTIONS.find(
@@ -1114,6 +1125,24 @@ class FmView extends ItemView {
     if (this.chordOverlayEl) {
       this.chordOverlayEl.addClass("is-hidden");
     }
+  }
+
+  cancelChordOverlay() {
+    if (this._gTimer) {
+      window.clearTimeout(this._gTimer);
+      this._gTimer = null;
+    }
+    if (this._zTimer) {
+      window.clearTimeout(this._zTimer);
+      this._zTimer = null;
+    }
+    this.hideChordOverlay();
+  }
+
+  hasOpenModal() {
+    const stack = (this.app.workspace as { modalStack?: unknown[] }).modalStack;
+    if (Array.isArray(stack) && stack.length > 0) return true;
+    return document.querySelector(".modal-container:not(.is-hidden)") !== null;
   }
 
   focusNavigation() {
