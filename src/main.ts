@@ -1306,13 +1306,14 @@ class FmView extends ItemView {
   }
 
   async trashOrDeleteEntry(entry: Entry, isFolder: boolean) {
-    if (typeof this.app.fileManager?.trashFile === "function") {
-      try {
-        await this.app.fileManager.trashFile(entry);
-        return;
-      } catch {}
+    const fileManager = this.app.fileManager;
+    if (!fileManager?.trashFile) {
+      new Notice("Trash is unavailable; deleting permanently.");
+      // eslint-disable-next-line obsidianmd/prefer-file-manager-trash-file
+      await this.app.vault.delete(entry, isFolder ? true : undefined);
+      return;
     }
-    await this.app.vault.delete(entry, isFolder ? true : undefined);
+    await fileManager.trashFile(entry);
   }
 
   async pasteEntry() {
@@ -2295,7 +2296,7 @@ class FmPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const loaded = await this.loadData();
+    const loaded: unknown = await this.loadData();
     this.settings = isFmPluginSettingsData(loaded)
       ? { ...DEFAULT_SETTINGS, ...loaded }
       : { ...DEFAULT_SETTINGS };
