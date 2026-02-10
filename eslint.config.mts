@@ -22,6 +22,9 @@ export default tseslint.config(
 	},
 	...obsidianmd.configs.recommended,
 	{
+		plugins: {
+			"@typescript-eslint": tseslint.plugin,
+		},
 		rules: {
 			"@typescript-eslint/no-floating-promises": "off",
 			"@typescript-eslint/no-explicit-any": "error",
