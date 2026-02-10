@@ -8,6 +8,13 @@ export default tseslint.config(
 			globals: {
 				...globals.browser,
 			},
+		},
+	},
+	...obsidianmd.configs.recommended,
+	{
+		files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
+		languageOptions: {
+			parser: tseslint.parser,
 			parserOptions: {
 				projectService: {
 					allowDefaultProject: [
@@ -16,17 +23,16 @@ export default tseslint.config(
 					]
 				},
 				tsconfigRootDir: import.meta.dirname,
-				extraFileExtensions: ['.json']
 			},
 		},
-	},
-	...obsidianmd.configs.recommended,
-	{
+		plugins: {
+			"@typescript-eslint": tseslint.plugin,
+		},
 		rules: {
 			"@typescript-eslint/no-floating-promises": "off",
-			"@typescript-eslint/no-explicit-any": "off",
+			"@typescript-eslint/no-explicit-any": "error",
 			"@typescript-eslint/no-unsafe-argument": "off",
-			"@typescript-eslint/no-unsafe-assignment": "off",
+			"@typescript-eslint/no-unsafe-assignment": "error",
 			"@typescript-eslint/no-unsafe-call": "off",
 			"@typescript-eslint/no-unsafe-member-access": "off",
 			"@typescript-eslint/no-unsafe-return": "off",
@@ -48,6 +54,7 @@ export default tseslint.config(
 			"build.mjs",
 			"esbuild.config.mjs",
 			"eslint.config.js",
+			"eslint.config.mts",
 			"version-bump.mjs",
 			"versions.json",
 			"main.js",

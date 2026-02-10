@@ -45,10 +45,13 @@
 */
 
 import {
+  App,
   Plugin,
   ItemView,
   TFile,
   TFolder,
+  TAbstractFile,
+  WorkspaceLeaf,
   MarkdownRenderer,
   Modal,
   TextComponent,
@@ -59,6 +62,30 @@ import {
   Setting,
   Notice,
 } from "obsidian";
+
+type Entry = TFile | TFolder;
+type ClipboardOperation = "copy" | "cut";
+type ChordOption = {
+  keys: string[];
+  desc: string;
+  action: (view: FmView) => void;
+};
+type FmViewState = {
+  startFolder?: string | null;
+  selectFile?: string | null;
+  prevFile?: string | null;
+};
+type AppWithViewRegistry = App & {
+  viewRegistry?: {
+    viewByType?: Record<string, unknown>;
+    unregisterView?: (type: string) => void;
+  };
+};
+type LeafWithTitle = WorkspaceLeaf & {
+  setTitle?: (title: string) => void;
+  tabHeaderInnerTitleEl?: HTMLElement;
+};
+type FmPluginSettingsData = Partial<FmPluginSettings>;
 
 // Helper: choose an icon name for a file based on extension
 function iconForFileName(name: string): string {
@@ -176,7 +203,7 @@ function iconForFileName(name: string): string {
   return "file";
 }
 
-function setEntryIcon(el: HTMLElement, entry: any) {
+function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
   if (entry instanceof TFolder) {
     setIcon(el, "folder");
   } else if (entry instanceof TFile) {
@@ -226,7 +253,7 @@ const G_CHORD_OPTIONS = [
     action: (view: FmView) => view.gotoPrevTab(),
   },
 ];
-const Z_CHORD_OPTIONS = [
+const Z_CHORD_OPTIONS: ChordOption[] = [
   {
     keys: ["z", "d"],
     desc: "toggle panes",
@@ -239,11 +266,11 @@ const Z_CHORD_OPTIONS = [
   },
 ];
 class FmView extends ItemView {
-  app: any;
+  app: App;
   plugin: FmPlugin;
-  currentFolder: any;
-  entries: any[];
-  allEntries: any[];
+  currentFolder: TFolder;
+  entries: Entry[];
+  allEntries: Entry[];
   selectedIndex: number;
   searchActive: boolean;
   searchQuery: string;
@@ -263,8 +290,8 @@ class FmView extends ItemView {
   showFileExtensions: boolean;
   sortFoldersFirst: boolean;
   previewMode: string;
-  clipboard: any;
-  clipboardOperation: string | null;
+  clipboard: Entry[] | null;
+  clipboardOperation: ClipboardOperation | null;
   selectedFiles: Set<string>;
   folderHistory: Map<string, string>;
   searchMode: string | null;
@@ -286,7 +313,7 @@ class FmView extends ItemView {
   previewEl: HTMLElement;
   statusEl: HTMLElement;
   
-  constructor(leaf: any, app: any, plugin: FmPlugin) {
+  constructor(leaf: WorkspaceLeaf, app: App, plugin: FmPlugin) {
     super(leaf);
     this.app = app;
     this.plugin = plugin;
@@ -345,16 +372,18 @@ class FmView extends ItemView {
 
   updateWindowTitle() {
     const title = this.formatWindowTitle(this.getWindowTitlePath());
-    if ((this.leaf as any)?.setTitle) {
-      (this.leaf as any).setTitle(title);
-    } else if ((this as any).setTitle) {
-      (this as any).setTitle(title);
-    } else if ((this.leaf as any)?.tabHeaderInnerTitleEl) {
-      (this.leaf as any).tabHeaderInnerTitleEl.textContent = title;
+    const leaf = this.leaf as LeafWithTitle;
+    const viewWithTitle = this as { setTitle?: (title: string) => void };
+    if (leaf.setTitle) {
+      leaf.setTitle(title);
+    } else if (viewWithTitle.setTitle) {
+      viewWithTitle.setTitle(title);
+    } else if (leaf.tabHeaderInnerTitleEl) {
+      leaf.tabHeaderInnerTitleEl.textContent = title;
     }
   }
 
-  async setState(state: any) {
+  async setState(state: FmViewState) {
     this.prevFilePath = state?.prevFile || null;
     this.startFolderPath = state?.startFolder || null;
     this.selectFilePath = state?.selectFile || null;
@@ -588,7 +617,7 @@ class FmView extends ItemView {
     // nothing special
   }
 
-  setStartFolder(path: any) {
+  setStartFolder(path: string | null) {
     const abs = path ? this.app.vault.getAbstractFileByPath(path) : null;
     let folder = this.app.vault.getRoot();
     if (abs instanceof TFolder) folder = abs;
@@ -599,7 +628,7 @@ class FmView extends ItemView {
     this.render();
   }
 
-  setStartLocation(filePath: any) {
+  setStartLocation(filePath: string | null) {
     const abs = filePath
       ? this.app.vault.getAbstractFileByPath(filePath)
       : null;
@@ -616,11 +645,11 @@ class FmView extends ItemView {
     }
   }
 
-  getFolderEntries(folder: any) {
+  getFolderEntries(folder: TFolder) {
     if (!(folder instanceof TFolder)) return [];
     const children = folder.children || [];
-    const dirs = [];
-    const files = [];
+    const dirs: TFolder[] = [];
+    const files: TFile[] = [];
     for (const child of children) {
       if (child instanceof TFolder) {
         if (!this.showHiddenFolders && child.name.startsWith(".")) continue;
@@ -638,14 +667,14 @@ class FmView extends ItemView {
     return [...dirs, ...files].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  getEntryLabel(entry: any) {
+  getEntryLabel(entry: Entry) {
     if (entry instanceof TFile && !this.showFileExtensions) {
       return entry.basename;
     }
     return entry.name;
   }
 
-  getEntrySearchName(entry: any) {
+  getEntrySearchName(entry: Entry) {
     return this.getEntryLabel(entry);
   }
 
@@ -735,7 +764,9 @@ class FmView extends ItemView {
     ) {
       const folderPath = this.currentFolder.path;
       const selectedEntry = this.entries[this.selectedIndex];
-      this.folderHistory.set(folderPath, selectedEntry.path);
+      if (selectedEntry) {
+        this.folderHistory.set(folderPath, selectedEntry.path);
+      }
     }
   }
 
@@ -1034,7 +1065,7 @@ class FmView extends ItemView {
     this.showChordOverlay("z", Z_CHORD_OPTIONS);
   }
 
-  showChordOverlay(label: string, options: any[]) {
+  showChordOverlay(label: string, options: ChordOption[]) {
     if (!this.hostEl) return;
     if (!this.chordOverlayEl) {
       this.chordOverlayEl = this.hostEl.createDiv({
@@ -1054,7 +1085,7 @@ class FmView extends ItemView {
     }
     this.chordOverlayTitleEl!.setText(`${label} key combinations`);
     this.chordOverlayListEl!.empty();
-    options.forEach((option: any) => {
+    options.forEach((option) => {
       const item = this.chordOverlayListEl!.createDiv({
         cls: "fm-chord-overlay-item",
       });
@@ -1103,6 +1134,7 @@ class FmView extends ItemView {
   toggleSelection() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     if (this.selectedFiles.has(entry.path)) {
       this.selectedFiles.delete(entry.path);
     } else {
@@ -1130,13 +1162,14 @@ class FmView extends ItemView {
     this.renderStatusBar();
   }
 
-  getSelectedEntries() {
+  getSelectedEntries(): Entry[] {
     // Return selected files if any, otherwise current entry
     if (this.selectedFiles.size > 0) {
       return this.entries.filter(e => this.selectedFiles.has(e.path));
     }
     if (this.entries.length > 0) {
-      return [this.entries[this.selectedIndex]];
+      const entry = this.entries[this.selectedIndex];
+      return entry ? [entry] : [];
     }
     return [];
   }
@@ -1149,7 +1182,10 @@ class FmView extends ItemView {
     this.clipboardOperation = "copy";
     
     if (entries.length === 1) {
-      new Notice(`Copied: ${entries[0].name}`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`Copied: ${entry.name}`);
+      }
     } else {
       new Notice(`Copied ${entries.length} items`);
     }
@@ -1163,7 +1199,10 @@ class FmView extends ItemView {
     this.clipboardOperation = "cut";
     
     if (entries.length === 1) {
-      new Notice(`Cut: ${entries[0].name} (ready to move)`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`Cut: ${entry.name} (ready to move)`);
+      }
     } else {
       new Notice(`Cut ${entries.length} items (ready to move)`);
     }
@@ -1191,13 +1230,16 @@ class FmView extends ItemView {
     this.render();
     
     if (entries.length === 1) {
-      new Notice(`${actionLabel}d: ${entries[0].name}`);
+      const entry = entries[0];
+      if (entry) {
+        new Notice(`${actionLabel}d: ${entry.name}`);
+      }
     } else {
       new Notice(`${actionLabel}d ${entries.length} items`);
     }
   }
 
-  async showDeleteConfirmation(entries: any[], actionLabel: string) {
+  async showDeleteConfirmation(entries: Entry[], actionLabel: string) {
     return new Promise((resolve) => {
       let resolved = false;
       const modal = new Modal(this.app);
@@ -1218,7 +1260,7 @@ class FmView extends ItemView {
       list.style.marginBottom = "15px";
       list.style.paddingLeft = "20px";
       
-      entries.forEach((entry: any) => {
+      entries.forEach((entry) => {
         const isFolder = entry instanceof TFolder;
         const icon = isFolder ? "📁" : "📄";
         list.createEl("li", { 
@@ -1263,14 +1305,15 @@ class FmView extends ItemView {
     });
   }
 
-  async trashOrDeleteEntry(entry: any, isFolder: boolean) {
-    if (typeof this.app.fileManager?.trashFile === "function") {
-      try {
-        await this.app.fileManager.trashFile(entry);
-        return;
-      } catch {}
+  async trashOrDeleteEntry(entry: Entry, isFolder: boolean) {
+    const fileManager = this.app.fileManager;
+    if (!fileManager?.trashFile) {
+      new Notice("Trash is unavailable; deleting permanently.");
+      // eslint-disable-next-line obsidianmd/prefer-file-manager-trash-file
+      await this.app.vault.delete(entry, isFolder ? true : undefined);
+      return;
     }
-    await this.app.vault.delete(entry, isFolder ? true : undefined);
+    await fileManager.trashFile(entry);
   }
 
   async pasteEntry() {
@@ -1282,12 +1325,16 @@ class FmView extends ItemView {
     const sources = Array.isArray(this.clipboard) ? this.clipboard : [this.clipboard];
     const destFolder = this.currentFolder;
     const operation = this.clipboardOperation;
+    if (!operation) {
+      new Notice("Nothing to paste");
+      return;
+    }
     
     // Check if confirmation is needed based on settings
-    const needsConfirmation = this.shouldConfirmPaste(sources, operation!);
+    const needsConfirmation = this.shouldConfirmPaste(sources, operation);
     
     if (needsConfirmation) {
-      const confirmed = await this.showPasteConfirmation(sources, operation!, destFolder);
+      const confirmed = await this.showPasteConfirmation(sources, operation, destFolder);
       if (!confirmed) return;
     }
 
@@ -1336,7 +1383,10 @@ class FmView extends ItemView {
     if (sources.length === 1) {
       if (successCount > 0) {
         const verb = operation === "copy" ? "Copied" : "Moved";
-        new Notice(`${verb}: ${sources[0].name}`);
+        const source = sources[0];
+        if (source) {
+          new Notice(`${verb}: ${source.name}`);
+        }
       }
     } else {
       if (successCount > 0 && failCount === 0) {
@@ -1349,7 +1399,7 @@ class FmView extends ItemView {
     }
   }
 
-  shouldConfirmPaste(sources: any[], operation: string) {
+  shouldConfirmPaste(sources: Entry[], operation: ClipboardOperation) {
     // Check settings for copy/move confirmation
     const settings = this.plugin?.settings;
     if (!settings) return false;
@@ -1360,7 +1410,11 @@ class FmView extends ItemView {
     return false;
   }
 
-  async showPasteConfirmation(sources: any[], operation: string, destFolder: any) {
+  async showPasteConfirmation(
+    sources: Entry[],
+    operation: ClipboardOperation,
+    destFolder: TFolder,
+  ) {
     return new Promise((resolve) => {
       let resolved = false;
       const modal = new Modal(this.app);
@@ -1382,7 +1436,7 @@ class FmView extends ItemView {
       list.style.marginBottom = "15px";
       list.style.paddingLeft = "20px";
       
-      sources.forEach((source: any) => {
+      sources.forEach((source) => {
         const isFolder = source instanceof TFolder;
         const icon = isFolder ? "📁" : "📄";
         list.createEl("li", { text: `${icon} ${source.path}` });
@@ -1417,7 +1471,10 @@ class FmView extends ItemView {
     });
   }
 
-  isSameFolderCopy(source: any, destFolder: any) {
+  isSameFolderCopy(
+    source: Entry,
+    destFolder: TFolder,
+  ): source is TFile {
     return (
       source instanceof TFile &&
       source.parent?.path === destFolder.path &&
@@ -1425,7 +1482,7 @@ class FmView extends ItemView {
     );
   }
 
-  async copyFileWithNewName(file: any, destFolder: any) {
+  async copyFileWithNewName(file: TFile, destFolder: TFolder) {
     const ext = file.extension;
     const baseName = file.basename;
     let counter = 1;
@@ -1462,7 +1519,7 @@ class FmView extends ItemView {
     }
   }
 
-  async copyToFolder(source: any, destFolder: any) {
+  async copyToFolder(source: Entry, destFolder: TFolder) {
     const newPath =
       destFolder.path === "/"
         ? source.name
@@ -1490,7 +1547,7 @@ class FmView extends ItemView {
     }
   }
 
-  async copyFolderRecursive(sourceFolder: any, destPath: string) {
+  async copyFolderRecursive(sourceFolder: TFolder, destPath: string) {
     // Create destination folder
     await this.app.vault.createFolder(destPath);
 
@@ -1506,7 +1563,7 @@ class FmView extends ItemView {
     }
   }
 
-  async moveToFolder(source: any, destFolder: any) {
+  async moveToFolder(source: Entry, destFolder: TFolder) {
     const newPath =
       destFolder.path === "/"
         ? source.name
@@ -1641,6 +1698,7 @@ class FmView extends ItemView {
   async renameEntry() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     const rawName = prompt("Rename to", entry.name);
     const newName = (rawName || "").trim();
     if (!newName || newName === entry.name) return;
@@ -1663,6 +1721,7 @@ class FmView extends ItemView {
   async duplicateEntry() {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     if (entry instanceof TFile) {
       await this.copyFileWithNewName(entry, entry.parent || this.currentFolder);
     } else if (entry instanceof TFolder) {
@@ -1671,7 +1730,7 @@ class FmView extends ItemView {
     this.render();
   }
 
-  async copyFolderWithNewName(folder: any) {
+  async copyFolderWithNewName(folder: TFolder) {
     const parentPath = folder.parent?.path || "/";
     let counter = 1;
     let newName = `${folder.name} copy`;
@@ -1716,7 +1775,7 @@ class FmView extends ItemView {
     this.renderPreview();
   }
 
-  openContextMenu(evt: MouseEvent, entry: any) {
+  openContextMenu(evt: MouseEvent, entry: Entry) {
     const menu = new Menu();
     if (entry instanceof TFile) {
       menu.addItem((i) =>
@@ -1917,7 +1976,7 @@ class FmView extends ItemView {
       return;
     }
     
-    const currentIndex = leaves.findIndex((leaf: any) => leaf === this.leaf);
+    const currentIndex = leaves.findIndex((leaf) => leaf === this.leaf);
     if (currentIndex === -1) {
       new Notice("Could not find current tab");
       return;
@@ -1989,8 +2048,10 @@ class FmView extends ItemView {
     if (pos === -1) pos = step > 0 ? -1 : 0;
     pos = (pos + step + matches.length) % matches.length;
     const targetAllIndex = matches[pos]?.i ?? 0;
+    const targetEntry = this.allEntries[targetAllIndex];
+    if (!targetEntry) return;
     const idxInEntries = this.entries.findIndex(
-      (e) => e.path === this.allEntries[targetAllIndex].path,
+      (e) => e.path === targetEntry.path,
     );
     if (idxInEntries >= 0) {
       this.selectedIndex = idxInEntries;
@@ -2052,6 +2113,7 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
 
     const entry = this.entries[this.selectedIndex];
+    if (!entry) return;
     const isFolder = entry instanceof TFolder;
 
     // Details
@@ -2163,13 +2225,47 @@ const DEFAULT_SETTINGS: FmPluginSettings = {
   confirmMove: false,
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
+  if (!isRecord(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length === 0) return true;
+  const allowedKeys = new Set<keyof FmPluginSettings>([
+    "showPreview",
+    "showDetails",
+    "showHiddenFiles",
+    "showHiddenFolders",
+    "showFileExtensions",
+    "sortFoldersFirst",
+    "confirmCopy",
+    "confirmMove",
+  ]);
+  for (const [key, settingValue] of entries) {
+    if (!allowedKeys.has(key as keyof FmPluginSettings)) {
+      return false;
+    }
+    if (!isBoolean(settingValue)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class FmPlugin extends Plugin {
   settings: FmPluginSettings;
   async onload() {
     await this.loadSettings();
 
-    if ((this.app as any).viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
-      (this.app as any).viewRegistry.unregisterView(VIEW_TYPE_FM);
+    const appWithRegistry = this.app as AppWithViewRegistry;
+    if (appWithRegistry.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      appWithRegistry.viewRegistry.unregisterView?.(VIEW_TYPE_FM);
     }
     this.registerView(VIEW_TYPE_FM, (leaf) => new FmView(leaf, this.app, this));
 
@@ -2193,13 +2289,17 @@ class FmPlugin extends Plugin {
     for (const leaf of leaves) {
       leaf.setViewState({ type: "empty" });
     }
-    if ((this.app as any).viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
-      (this.app as any).viewRegistry.unregisterView(VIEW_TYPE_FM);
+    const appWithRegistry = this.app as AppWithViewRegistry;
+    if (appWithRegistry.viewRegistry?.viewByType?.[VIEW_TYPE_FM]) {
+      appWithRegistry.viewRegistry.unregisterView?.(VIEW_TYPE_FM);
     }
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loaded: unknown = await this.loadData();
+    this.settings = isFmPluginSettingsData(loaded)
+      ? { ...DEFAULT_SETTINGS, ...loaded }
+      : { ...DEFAULT_SETTINGS };
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -2241,7 +2341,7 @@ class FmPlugin extends Plugin {
 class FmSettingTab extends PluginSettingTab {
   plugin: FmPlugin;
   
-  constructor(app: any, plugin: FmPlugin) {
+  constructor(app: App, plugin: FmPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
