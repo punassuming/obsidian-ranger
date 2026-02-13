@@ -152,8 +152,8 @@ The repository uses **automatic version bumping** when pull requests are merged 
    - Triggers the release workflow to publish the new version
 
 2. **Version Bump Type** is determined by PR title or body:
-   - **Major version** (1.0.0 → 2.0.0): Include `[major]`, `breaking change`, or `major version` in PR title or description
-   - **Minor version** (0.6.0 → 0.7.0): Include `[minor]`, `feature`, `enhancement`, or `minor version` in PR title or description
+   - **Major version** (0.6.1 → 1.0.0): Include `[major]`, `breaking change`, or `major version` in PR title or description
+   - **Minor version** (0.6.1 → 0.7.0): Include `[minor]`, `feature`, `enhancement`, or `minor version` in PR title or description
    - **Patch version** (0.6.1 → 0.6.2): Default for all other PRs (bug fixes, chores, etc.)
 
 ### Example PR Titles
