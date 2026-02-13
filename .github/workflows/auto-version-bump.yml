@@ -32,18 +32,21 @@ jobs:
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email \
+            "github-actions[bot]@users.noreply.github.com"
 
       - name: Determine version bump type
         id: bump_type
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body }}"
-          
+
           # Check for version bump indicators in PR title or body
-          if echo "$PR_TITLE $PR_BODY" | grep -qiE '\[major\]|breaking change|major version'; then
+          if echo "$PR_TITLE $PR_BODY" | \
+             grep -qiE '\[major\]|breaking change|major version'; then
             echo "type=major" >> $GITHUB_OUTPUT
-          elif echo "$PR_TITLE $PR_BODY" | grep -qiE '\[minor\]|feature|enhancement|minor version'; then
+          elif echo "$PR_TITLE $PR_BODY" | \
+               grep -qiE '\[minor\]|feature|enhancement|minor version'; then
             echo "type=minor" >> $GITHUB_OUTPUT
           else
             echo "type=patch" >> $GITHUB_OUTPUT
@@ -55,10 +58,10 @@ jobs:
           # Get current version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
-          
+
           # Split version into major.minor.patch
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          
+
           # Determine new version based on bump type
           BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
           if [ "$BUMP_TYPE" = "major" ]; then
@@ -71,7 +74,7 @@ jobs:
           else
             PATCH=$((PATCH + 1))
           fi
-          
+
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           echo "New version: $NEW_VERSION ($BUMP_TYPE bump)"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
