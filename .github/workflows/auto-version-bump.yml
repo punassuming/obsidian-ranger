@@ -38,14 +38,16 @@ jobs:
       - name: Determine version bump type
         id: bump_type
         run: |
+          # Use printf to properly handle special characters in PR text
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body }}"
+          PR_TEXT=$(printf '%s\n%s' "$PR_TITLE" "$PR_BODY")
 
           # Check for version bump indicators in PR title or body
-          if echo "$PR_TITLE $PR_BODY" | \
+          if printf '%s' "$PR_TEXT" | \
              grep -qiE '\[major\]|breaking change|major version'; then
             echo "type=major" >> $GITHUB_OUTPUT
-          elif echo "$PR_TITLE $PR_BODY" | \
+          elif printf '%s' "$PR_TEXT" | \
                grep -qiE '\[minor\]|feature|enhancement|minor version'; then
             echo "type=minor" >> $GITHUB_OUTPUT
           else
