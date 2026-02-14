@@ -139,6 +139,61 @@ After making changes:
    - Screenshots (for UI changes)
    - Related issue numbers
 
+## Versioning and Releases
+
+The repository uses **automatic version bumping** when pull requests are merged into main.
+
+### How It Works
+
+1. When a PR is merged into `main`, a GitHub Actions workflow automatically:
+   - Increments the version number in `package.json`, `manifest.json`, and `versions.json`
+   - Creates a commit with the version bump
+   - Creates and pushes a git tag matching the new version
+   - Triggers the release workflow to publish the new version
+
+2. **Version Bump Type** is determined by PR title or body:
+   - **Major version** (0.6.1 → 1.0.0): Include `[major]`, `breaking change`, or `major version` in PR title or description
+   - **Minor version** (0.6.1 → 0.7.0): Include `[minor]`, `feature`, `enhancement`, or `minor version` in PR title or description
+   - **Patch version** (0.6.1 → 0.6.2): Default for all other PRs (bug fixes, chores, etc.)
+
+### Example PR Titles
+
+```
+feat: add bookmark functionality [minor]
+fix: resolve search highlighting bug
+feat: add new navigation mode [major] - breaking change
+docs: update contributing guide
+```
+
+### Manual Versioning (Not Recommended)
+
+If you need to manually control versioning for any reason:
+
+1. Update version in `package.json`:
+   ```bash
+   npm version patch|minor|major --no-git-tag-version
+   ```
+
+2. Run the version bump script:
+   ```bash
+   npm run version
+   ```
+
+3. Commit and push changes:
+   ```bash
+   git add package.json manifest.json versions.json
+   git commit -m "chore: bump version to X.Y.Z"
+   git push
+   ```
+
+4. Create and push a tag:
+   ```bash
+   git tag X.Y.Z
+   git push origin X.Y.Z
+   ```
+
+However, it's strongly recommended to let the automatic workflow handle versioning to maintain consistency.
+
 ## Code Organization
 
 ### main.js Structure
