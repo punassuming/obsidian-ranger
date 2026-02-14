@@ -1815,6 +1815,38 @@ class FmView extends ItemView {
     this.renderPreview();
   }
 
+  updateViewDeerModeState(view: FmView, deerModeEnabled: boolean) {
+    if (deerModeEnabled) {
+      // Deer mode ON: hide both preview and details
+      view.showPreview = false;
+      view.showDetails = false;
+    } else {
+      // Deer mode OFF: restore from settings
+      view.showPreview = !!this.plugin.settings.showPreview;
+      view.showDetails = !!this.plugin.settings.showDetails;
+    }
+
+    // Update DOM classes for preview
+    if (view.previewEl) {
+      if (view.showPreview) view.previewEl.removeClass("is-hidden");
+      else view.previewEl.addClass("is-hidden");
+    }
+
+    // Update DOM classes for details
+    if (view.detailsEl) {
+      if (view.showDetails) view.detailsEl.removeClass("is-hidden");
+      else view.detailsEl.addClass("is-hidden");
+    }
+
+    // Update hostEl class for layout
+    if (view.hostEl) {
+      if (view.showPreview) view.hostEl.removeClass("single");
+      else view.hostEl.addClass("single");
+    }
+
+    view.renderPreview();
+  }
+
   async toggleDeerMode() {
     // Toggle deer mode in plugin settings
     const newDeerMode = !this.plugin.settings.deerMode;
@@ -1825,35 +1857,7 @@ class FmView extends ItemView {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
     for (const leaf of leaves) {
       const view = leaf.view as FmView;
-      if (newDeerMode) {
-        // Deer mode ON: hide both preview and details
-        view.showPreview = false;
-        view.showDetails = false;
-      } else {
-        // Deer mode OFF: restore from settings
-        view.showPreview = !!this.plugin.settings.showPreview;
-        view.showDetails = !!this.plugin.settings.showDetails;
-      }
-
-      // Update DOM classes for preview
-      if (view.previewEl) {
-        if (view.showPreview) view.previewEl.removeClass("is-hidden");
-        else view.previewEl.addClass("is-hidden");
-      }
-
-      // Update DOM classes for details
-      if (view.detailsEl) {
-        if (view.showDetails) view.detailsEl.removeClass("is-hidden");
-        else view.detailsEl.addClass("is-hidden");
-      }
-
-      // Update hostEl class for layout
-      if (view.hostEl) {
-        if (view.showPreview) view.hostEl.removeClass("single");
-        else view.hostEl.addClass("single");
-      }
-
-      view.renderPreview();
+      this.updateViewDeerModeState(view, newDeerMode);
     }
 
     new Notice(newDeerMode ? "Deer mode enabled" : "Deer mode disabled");
@@ -2461,35 +2465,7 @@ class FmSettingTab extends PluginSettingTab {
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
           for (const leaf of leaves) {
             const view = leaf.view as FmView;
-            if (v) {
-              // Deer mode ON: hide both
-              view.showPreview = false;
-              view.showDetails = false;
-            } else {
-              // Deer mode OFF: restore from settings
-              view.showPreview = !!this.plugin.settings.showPreview;
-              view.showDetails = !!this.plugin.settings.showDetails;
-            }
-            
-            // Update DOM classes for preview
-            if (view.previewEl) {
-              if (view.showPreview) view.previewEl.removeClass("is-hidden");
-              else view.previewEl.addClass("is-hidden");
-            }
-
-            // Update DOM classes for details
-            if (view.detailsEl) {
-              if (view.showDetails) view.detailsEl.removeClass("is-hidden");
-              else view.detailsEl.addClass("is-hidden");
-            }
-
-            // Update hostEl class for layout
-            if (view.hostEl) {
-              if (view.showPreview) view.hostEl.removeClass("single");
-              else view.hostEl.addClass("single");
-            }
-
-            view.renderPreview();
+            view.updateViewDeerModeState(view, v);
           }
         }),
       );
