@@ -38,14 +38,15 @@ jobs:
       - name: Determine version bump type
         id: bump_type
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
+          # Use printf to safely handle PR title and body to prevent shell injection
+          PR_TITLE=$(printf '%s\n' '${{ github.event.pull_request.title }}')
+          PR_BODY=$(printf '%s\n' '${{ github.event.pull_request.body }}')
 
           # Check for version bump indicators in PR title or body
-          if echo "$PR_TITLE $PR_BODY" | \
+          if printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | \
              grep -qiE '\[major\]|breaking change|major version'; then
             echo "type=major" >> $GITHUB_OUTPUT
-          elif echo "$PR_TITLE $PR_BODY" | \
+          elif printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | \
                grep -qiE '\[minor\]|feature|enhancement|minor version'; then
             echo "type=minor" >> $GITHUB_OUTPUT
           else
