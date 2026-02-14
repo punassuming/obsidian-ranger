@@ -76,6 +76,7 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `D` | Duplicate selected item |
 | `zd` | Toggle preview pane visibility |
 | `zp` | Toggle preview mode (rendered/text) |
+| `zm` | Toggle deer mode (structure-only) |
 | `q` / `Esc` | Close File Nav - Ranger for Obsidian (or exit search) |
 
 ### Search and Filter Modes
@@ -169,6 +170,7 @@ Right-click on any file or folder for quick actions:
 Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 
 ### Display Settings
+- **Deer mode (structure-only)**: Hide both preview and details panes by default (shows only file structure). Can be toggled with `zm` keyboard shortcut.
 - **Show preview by default**: Enable/disable the markdown preview panel
 - **Show details by default**: Enable/disable the file/folder details panel
 
