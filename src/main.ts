@@ -264,6 +264,11 @@ const Z_CHORD_OPTIONS: ChordOption[] = [
     desc: "preview mode",
     action: (view: FmView) => view.togglePreviewMode(),
   },
+  {
+    keys: ["z", "m"],
+    desc: "deer mode (structure-only)",
+    action: (view: FmView) => { void view.toggleDeerMode(); },
+  },
 ];
 class FmView extends ItemView {
   app: App;
@@ -408,8 +413,14 @@ class FmView extends ItemView {
     // adopt defaults from plugin settings if available
     const s = this.plugin?.settings;
     if (s) {
-      this.showPreview = !!s.showPreview;
-      this.showDetails = !!s.showDetails;
+      // Deer mode overrides preview and details settings
+      if (s.deerMode) {
+        this.showPreview = false;
+        this.showDetails = false;
+      } else {
+        this.showPreview = !!s.showPreview;
+        this.showDetails = !!s.showDetails;
+      }
       this.showHiddenFiles = !!s.showHiddenFiles;
       this.showHiddenFolders = !!s.showHiddenFolders;
       this.showFileExtensions = !!s.showFileExtensions;
@@ -1625,7 +1636,7 @@ class FmView extends ItemView {
     return trimmed;
   }
 
-  promptForName(title: string, placeholder: string, value: string) {
+  promptForName(title: string, placeholder: string, value: string): Promise<string | null> {
     return new Promise((resolve) => {
       let resolved = false;
       const modal = new Modal(this.app);
@@ -1707,7 +1718,7 @@ class FmView extends ItemView {
       "Folder name",
       "",
     );
-    const folderName = ((rawName || "") as string).trim().replace(/^\/+/, "");
+    const folderName = (rawName || "").trim().replace(/^\/+/, "");
     if (!folderName) return;
     const path = this.buildChildPath(this.currentFolder.path, folderName);
     if (this.app.vault.getAbstractFileByPath(path)) {
@@ -1728,7 +1739,7 @@ class FmView extends ItemView {
     if (!this.entries.length) return;
     const entry = this.entries[this.selectedIndex];
     if (!entry) return;
-    const rawName = prompt("Rename to", entry.name);
+    const rawName = await this.promptForName("Rename", "Enter new name", entry.name);
     const newName = (rawName || "").trim();
     if (!newName || newName === entry.name) return;
     const parentPath = entry.parent?.path || "/";
@@ -1802,6 +1813,54 @@ class FmView extends ItemView {
   togglePreviewMode() {
     this.previewMode = this.previewMode === "rendered" ? "text" : "rendered";
     this.renderPreview();
+  }
+
+  updateViewDeerModeState(view: FmView, deerModeEnabled: boolean) {
+    if (deerModeEnabled) {
+      // Deer mode ON: hide both preview and details
+      view.showPreview = false;
+      view.showDetails = false;
+    } else {
+      // Deer mode OFF: restore from settings
+      view.showPreview = !!this.plugin.settings.showPreview;
+      view.showDetails = !!this.plugin.settings.showDetails;
+    }
+
+    // Update DOM classes for preview
+    if (view.previewEl) {
+      if (view.showPreview) view.previewEl.removeClass("is-hidden");
+      else view.previewEl.addClass("is-hidden");
+    }
+
+    // Update DOM classes for details
+    if (view.detailsEl) {
+      if (view.showDetails) view.detailsEl.removeClass("is-hidden");
+      else view.detailsEl.addClass("is-hidden");
+    }
+
+    // Update hostEl class for layout
+    if (view.hostEl) {
+      if (view.showPreview) view.hostEl.removeClass("single");
+      else view.hostEl.addClass("single");
+    }
+
+    view.renderPreview();
+  }
+
+  async toggleDeerMode() {
+    // Toggle deer mode in plugin settings
+    const newDeerMode = !this.plugin.settings.deerMode;
+    this.plugin.settings.deerMode = newDeerMode;
+    await this.plugin.saveSettings();
+
+    // Update all open File Nav leaves to reflect the new deer mode state
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    for (const leaf of leaves) {
+      const view = leaf.view as FmView;
+      this.updateViewDeerModeState(view, newDeerMode);
+    }
+
+    new Notice(newDeerMode ? "Deer mode enabled" : "Deer mode disabled");
   }
 
   openContextMenu(evt: MouseEvent, entry: Entry) {
@@ -2137,6 +2196,11 @@ class FmView extends ItemView {
 
   // --- Preview & details ---
   async renderPreview() {
+    // Performance optimization: skip if both preview and details are hidden
+    if (!this.showPreview && !this.showDetails) {
+      return;
+    }
+
     this.detailsEl.empty();
     this.previewEl.empty();
     if (!this.entries.length) return;
@@ -2235,6 +2299,7 @@ class FmView extends ItemView {
 interface FmPluginSettings {
   showPreview: boolean;
   showDetails: boolean;
+  deerMode: boolean;
   showHiddenFiles: boolean;
   showHiddenFolders: boolean;
   showFileExtensions: boolean;
@@ -2246,6 +2311,7 @@ interface FmPluginSettings {
 const DEFAULT_SETTINGS: FmPluginSettings = {
   showPreview: true,
   showDetails: true,
+  deerMode: false,
   showHiddenFiles: true,
   showHiddenFolders: true,
   showFileExtensions: true,
@@ -2385,6 +2451,23 @@ class FmSettingTab extends PluginSettingTab {
       .setName("Vim users")
       .setDesc(
         'In `.obsidian.vimrc`, map a key to the command id, for example: `exmap ranger obcommand file-nav-ranger:open-fm-file-manager` then `nmap - :ranger<CR>`',
+      );
+
+    new Setting(containerEl)
+      .setName("Deer mode (structure-only)")
+      .setDesc(
+        "Hide both preview and details panes by default. Shows only the file structure. Toggle with 'zm' keyboard shortcut.",
+      )
+      .addToggle((t) =>
+        t.setValue(!!this.plugin.settings.deerMode).onChange(async (v) => {
+          this.plugin.settings.deerMode = v;
+          await this.plugin.saveSettings();
+          const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+          for (const leaf of leaves) {
+            const view = leaf.view as FmView;
+            view.updateViewDeerModeState(view, v);
+          }
+        }),
       );
 
     new Setting(containerEl)

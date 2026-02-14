@@ -50,6 +50,7 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 |-----|--------|
 | `zd` | Toggle preview pane visibility |
 | `zp` | Toggle preview mode (rendered/text) |
+| `zm` | Toggle deer mode (structure-only) |
 | `q` or `Esc` | Close File Nav - Ranger for Obsidian |
 
 ## Mouse Support
@@ -128,7 +129,8 @@ Bottom of screen shows keyboard shortcuts:
 
 - All operations work with keyboard only
 - Search mode highlights matches; filter mode shows only matches
-- Press `zd` to toggle preview pane, `zp` to toggle preview mode
+- Press `zd` to toggle preview pane, `zp` to toggle preview mode, `zm` to toggle deer mode (structure-only)
+- Deer mode hides both preview and details panels, showing only the file structure
 - Preview shows markdown rendering or raw text
 - Selected items show in accent color
 - Works with your Obsidian theme
@@ -139,6 +141,7 @@ Bottom of screen shows keyboard shortcuts:
 
 Access via: **Settings → File Nav - Ranger for Obsidian**
 
+- **Deer mode (structure-only)** - Hide both preview and details panes by default (shows only file structure)
 - **Show preview by default** - Toggle markdown preview panel
 - **Show details by default** - Toggle file metadata panel
 - **Show file extensions** - Show file extensions in the list
