@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-ranger",
-	"version": "0.6.2",
+	"version": "0.6.3",
 	"description": "File navigator with vim-style keyboard navigation and file management operations for Obsidian.",
 	"main": "main.js",
 	"type": "module",
