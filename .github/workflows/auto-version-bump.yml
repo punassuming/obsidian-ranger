@@ -39,14 +39,13 @@ jobs:
         id: bump_type
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          # Check for version bump indicators in PR title or body
+          # Check for version bump indicators in PR title
           # Using env vars prevents shell injection - GitHub Actions properly escapes them
-          if printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | \
+          if printf '%s\n' "$PR_TITLE" | \
              grep -qiE '\[major\]|breaking change|major version'; then
             echo "type=major" >> $GITHUB_OUTPUT
-          elif printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | \
+          elif printf '%s\n' "$PR_TITLE" | \
                grep -qiE '\[minor\]|feature|enhancement|minor version'; then
             echo "type=minor" >> $GITHUB_OUTPUT
           else
@@ -91,7 +90,7 @@ jobs:
       - name: Commit version bump
         run: |
           NEW_VERSION="${{ steps.version.outputs.version }}"
-          git add package.json manifest.json versions.json
+          git add package.json package-lock.json manifest.json versions.json
           git commit -m "chore: bump version to $NEW_VERSION"
 
           # Try to push with retry logic in case of race conditions
