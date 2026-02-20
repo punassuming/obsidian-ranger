@@ -1,7 +1,7 @@
 {
 	"id": "file-nav-ranger",
 	"name": "File Nav - Ranger for Obsidian",
-	"version": "0.6.1",
+	"version": "0.6.2",
 	"minAppVersion": "1.4.0",
 	"description": "File navigator with vim-style keyboard navigation and file management operations.",
 	"author": "punassuming",
