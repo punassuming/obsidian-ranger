@@ -65,6 +65,10 @@ import {
 
 type Entry = TFile | TFolder;
 type ClipboardOperation = "copy" | "cut";
+type FavoriteTarget = {
+  path: string;
+  isFolder: boolean;
+};
 type ChordOption = {
   keys: string[];
   desc: string;
@@ -214,6 +218,11 @@ function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
 }
 
 const VIEW_TYPE_FM = "file-nav-ranger-view";
+const TAB_SWITCH_NOTICE_THROTTLE_MS = 500;
+const ENTRY_NAME_COLLATOR = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
 
 // Image file extensions for preview
 const IMAGE_EXTENSIONS = [
@@ -251,6 +260,16 @@ const G_CHORD_OPTIONS = [
     keys: ["g", "T"],
     desc: "previous tab",
     action: (view: FmView) => view.gotoPrevTab(),
+  },
+  {
+    keys: ["g", "f"],
+    desc: "next favorite",
+    action: (view: FmView) => view.gotoNextFavorite(),
+  },
+  {
+    keys: ["g", "F"],
+    desc: "previous favorite",
+    action: (view: FmView) => view.gotoPrevFavorite(),
   },
 ];
 const Z_CHORD_OPTIONS: ChordOption[] = [
@@ -299,6 +318,7 @@ class FmView extends ItemView {
   clipboardOperation: ClipboardOperation | null;
   selectedFiles: Set<string>;
   folderHistory: Map<string, string>;
+  lastTabSwitchNoticeAt: number;
   searchMode: string | null;
   filterActive: boolean;
   chordOverlayEl: HTMLElement | null;
@@ -351,6 +371,7 @@ class FmView extends ItemView {
     this.selectedFiles = new Set(); // Set of file/folder paths for multi-selection
     // History: remember last selected file in each folder
     this.folderHistory = new Map(); // folderPath -> entryPath
+    this.lastTabSwitchNoticeAt = 0;
     // Search/filter mode tracking
     this.searchMode = null; // 'search' or 'filter'
     this.filterActive = false;
@@ -682,11 +703,13 @@ class FmView extends ItemView {
       }
     }
     if (this.sortFoldersFirst) {
-      dirs.sort((a, b) => a.name.localeCompare(b.name));
-      files.sort((a, b) => a.name.localeCompare(b.name));
+      dirs.sort((a, b) => ENTRY_NAME_COLLATOR.compare(a.name, b.name));
+      files.sort((a, b) => ENTRY_NAME_COLLATOR.compare(a.name, b.name));
       return [...dirs, ...files];
     }
-    return [...dirs, ...files].sort((a, b) => a.name.localeCompare(b.name));
+    return [...dirs, ...files].sort((a, b) =>
+      ENTRY_NAME_COLLATOR.compare(a.name, b.name),
+    );
   }
 
   getEntryLabel(entry: Entry) {
@@ -2081,8 +2104,96 @@ class FmView extends ItemView {
       if (targetView instanceof FmView) {
         window.requestAnimationFrame(() => targetView.focusNavigation());
       }
-      new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
+      const now = Date.now();
+      if (now - this.lastTabSwitchNoticeAt > TAB_SWITCH_NOTICE_THROTTLE_MS) {
+        new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
+        this.lastTabSwitchNoticeAt = now;
+      }
     }
+  }
+
+  getFavoriteTargets(): FavoriteTarget[] {
+    const favorites: FavoriteTarget[] = [];
+    const seen = new Set<string>();
+    const addPath = (path: unknown) => {
+      if (typeof path !== "string" || path.length === 0) return;
+      const fileOrFolder = this.app.vault.getAbstractFileByPath(path);
+      if (!(fileOrFolder instanceof TFile) && !(fileOrFolder instanceof TFolder))
+        return;
+      if (seen.has(fileOrFolder.path)) return;
+      seen.add(fileOrFolder.path);
+      favorites.push({
+        path: fileOrFolder.path,
+        isFolder: fileOrFolder instanceof TFolder,
+      });
+    };
+    const collectBookmarkItems = (items: unknown) => {
+      if (!Array.isArray(items)) return;
+      for (const item of items) {
+        if (!isRecord(item)) continue;
+        const type = item.type;
+        if (
+          (type === "file" || type === "folder") &&
+          typeof item.path === "string"
+        ) {
+          addPath(item.path);
+        }
+        if (Array.isArray(item.items)) {
+          collectBookmarkItems(item.items);
+        }
+      }
+    };
+    const internalPlugins = (
+      this.app as App & {
+        internalPlugins?: {
+          getPluginById?: (id: string) => { instance?: unknown } | undefined;
+        };
+      }
+    ).internalPlugins;
+    const bookmarks = internalPlugins?.getPluginById?.("bookmarks");
+    if (bookmarks && isRecord(bookmarks.instance)) {
+      collectBookmarkItems(bookmarks.instance.items);
+    }
+    const starred = internalPlugins?.getPluginById?.("starred");
+    if (starred && isRecord(starred.instance)) {
+      const starredItems = starred.instance.items;
+      if (Array.isArray(starredItems)) {
+        for (const item of starredItems) {
+          if (isRecord(item)) addPath(item.path);
+        }
+      }
+    }
+    return favorites;
+  }
+
+  gotoFavorite(direction: number) {
+    const favorites = this.getFavoriteTargets();
+    if (!favorites.length) {
+      new Notice("No favorited files or folders found");
+      return;
+    }
+    const currentPath =
+      this.entries[this.selectedIndex]?.path || this.currentFolder.path;
+    const currentIndex = favorites.findIndex((item) => item.path === currentPath);
+    const targetIndex =
+      currentIndex >= 0
+        ? (currentIndex + direction + favorites.length) % favorites.length
+        : direction < 0
+          ? favorites.length - 1
+          : 0;
+    const target = favorites[targetIndex] ?? favorites[0];
+    if (!target) return;
+    if (target.isFolder) this.setStartFolder(target.path);
+    else this.setStartLocation(target.path);
+    new Notice(`Favorite ${targetIndex + 1}/${favorites.length}: ${target.path}`);
+  }
+
+  gotoNextFavorite() {
+    this.gotoFavorite(1);
+  }
+
+  gotoPrevFavorite() {
+    this.gotoFavorite(-1);
   }
 
   // Navigate to next tab with File Nav view
