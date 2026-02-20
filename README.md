@@ -62,6 +62,8 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `gh` / `g/` | Go to vault root (home) |
 | `gt` | Go to next File Nav tab |
 | `gT` | Go to previous File Nav tab |
+| `gf` | Go to next Obsidian favorite (file/folder) |
+| `gF` | Go to previous Obsidian favorite (file/folder) |
 | `T` | Open new File Nav tab |
 | `Ctrl+d` / `Ctrl+u` | Move down / up by 10 items |
 | `v` / `Space` | Toggle file selection (for multi-file operations) |

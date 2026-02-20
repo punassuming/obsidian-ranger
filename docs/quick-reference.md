@@ -18,6 +18,8 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 | `gh` or `g/` | Go to vault root (home) |
 | `gt` | Go to next File Nav tab |
 | `gT` | Go to previous File Nav tab |
+| `gf` | Go to next Obsidian favorite (file/folder) |
+| `gF` | Go to previous Obsidian favorite (file/folder) |
 | `T` | Open new File Nav tab |
 
 ## File Operations
