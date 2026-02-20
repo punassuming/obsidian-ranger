@@ -218,6 +218,7 @@ function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
 }
 
 const VIEW_TYPE_FM = "file-nav-ranger-view";
+const TAB_SWITCH_NOTICE_THROTTLE_MS = 500;
 const ENTRY_NAME_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
@@ -2104,9 +2105,9 @@ class FmView extends ItemView {
         window.requestAnimationFrame(() => targetView.focusNavigation());
       }
       const now = Date.now();
-      if (now - this.lastTabSwitchNoticeAt > 500) {
-        this.lastTabSwitchNoticeAt = now;
+      if (now - this.lastTabSwitchNoticeAt > TAB_SWITCH_NOTICE_THROTTLE_MS) {
         new Notice(`Switched to File Nav tab ${targetIndex + 1}/${leaves.length}`);
+        this.lastTabSwitchNoticeAt = now;
       }
     }
   }
@@ -2115,12 +2116,16 @@ class FmView extends ItemView {
     const favorites: FavoriteTarget[] = [];
     const seen = new Set<string>();
     const addPath = (path: unknown) => {
-      if (typeof path !== "string" || !path) return;
-      const abs = this.app.vault.getAbstractFileByPath(path);
-      if (!(abs instanceof TFile) && !(abs instanceof TFolder)) return;
-      if (seen.has(abs.path)) return;
-      seen.add(abs.path);
-      favorites.push({ path: abs.path, isFolder: abs instanceof TFolder });
+      if (typeof path !== "string" || path.length === 0) return;
+      const fileOrFolder = this.app.vault.getAbstractFileByPath(path);
+      if (!(fileOrFolder instanceof TFile) && !(fileOrFolder instanceof TFolder))
+        return;
+      if (seen.has(fileOrFolder.path)) return;
+      seen.add(fileOrFolder.path);
+      favorites.push({
+        path: fileOrFolder.path,
+        isFolder: fileOrFolder instanceof TFolder,
+      });
     };
     const collectBookmarkItems = (items: unknown) => {
       if (!Array.isArray(items)) return;
@@ -2176,7 +2181,7 @@ class FmView extends ItemView {
         : direction < 0
           ? favorites.length - 1
           : 0;
-    const target = favorites[targetIndex];
+    const target = favorites[targetIndex] ?? favorites[0];
     if (!target) return;
     if (target.isFolder) this.setStartFolder(target.path);
     else this.setStartLocation(target.path);
