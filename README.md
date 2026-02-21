@@ -189,6 +189,15 @@ Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 - **Confirm before moving**: Show confirmation dialog when moving files (optional)
 - **Note**: Delete operations always require confirmation for safety
 
+### Layout
+- **Default split ratio (%)**: Width of the file list pane as a percentage (10–80). You can also drag the divider between the file list and preview panes to resize them — the ratio is saved automatically.
+
+### Inline Metadata
+- **Show inline metadata**: When enabled, each file row shows the last-modified date (e.g. `Feb 21`) and each folder row shows its direct child count (e.g. `4 items`), right-aligned in the list.
+
+### Path Bar
+The path bar at the top of the view displays the current folder as a clickable breadcrumb (e.g. `/ > notes > projects > work`). Click any ancestor segment to navigate directly to that folder.
+
 ## Documentation
 
 - [Quick reference](docs/quick-reference.md)
