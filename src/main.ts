@@ -243,6 +243,8 @@ const IMAGE_EXTENSIONS = [
   "jxl",
 ];
 
+const SHORT_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 const G_CHORD_OPTIONS = [
   { keys: ["g", "g"], desc: "top", action: (view: FmView) => view.jumpTop() },
   {
@@ -313,6 +315,8 @@ class FmView extends ItemView {
   showHiddenFolders: boolean;
   showFileExtensions: boolean;
   sortFoldersFirst: boolean;
+  showInlineMetadata: boolean;
+  splitRatio: number;
   previewMode: string;
   clipboard: Entry[] | null;
   clipboardOperation: ClipboardOperation | null;
@@ -328,6 +332,7 @@ class FmView extends ItemView {
   _zTimer: number | null;
   hostEl: HTMLElement;
   pathEl: HTMLElement;
+  resizerEl: HTMLElement;
   searchWrapEl: HTMLElement;
   searchInputEl: HTMLInputElement;
   layoutEl: HTMLElement;
@@ -363,6 +368,8 @@ class FmView extends ItemView {
     this.showHiddenFolders = true;
     this.showFileExtensions = true;
     this.sortFoldersFirst = true;
+    this.showInlineMetadata = false;
+    this.splitRatio = 40;
     this.previewMode = "rendered";
     // Clipboard for copy/move operations
     this.clipboard = null;
@@ -446,6 +453,8 @@ class FmView extends ItemView {
       this.showHiddenFolders = !!s.showHiddenFolders;
       this.showFileExtensions = !!s.showFileExtensions;
       this.sortFoldersFirst = !!s.sortFoldersFirst;
+      this.showInlineMetadata = !!s.showInlineMetadata;
+      this.splitRatio = typeof s.defaultSplitRatio === "number" ? s.defaultSplitRatio : 40;
     }
     const fileFromPath = (p: string | null) =>
       p ? this.app.vault.getAbstractFileByPath(p) : null;
@@ -462,8 +471,8 @@ class FmView extends ItemView {
     const host = root.createDiv({ cls: "fm-fm", attr: { tabindex: "0" } });
     this.hostEl = host;
 
-    // Path bar
-    this.pathEl = host.createDiv({ cls: "fm-path" });
+    // Path bar (breadcrumb)
+    this.pathEl = host.createDiv({ cls: "fm-breadcrumb" });
     // Search bar
     this.searchWrapEl = host.createDiv({ cls: "fm-search is-hidden" });
     this.searchInputEl = this.searchWrapEl.createEl("input", {
@@ -503,10 +512,35 @@ class FmView extends ItemView {
     });
     // Layout
     this.layoutEl = host.createDiv({ cls: "fm-layout" });
+    this.layoutEl.style.gridTemplateColumns = `${this.splitRatio}% 4px 1fr`;
     this.leftEl = this.layoutEl.createDiv({ cls: "fm-left" });
     this.listEl = this.leftEl.createDiv({
       cls: "fm-list",
       attr: { tabindex: "0" },
+    });
+    // Resizer divider
+    this.resizerEl = this.layoutEl.createDiv({ cls: "fm-resizer" });
+    this.registerDomEvent(this.resizerEl, "mousedown", (evt: MouseEvent) => {
+      evt.preventDefault();
+      this.resizerEl.addClass("is-dragging");
+      const startX = evt.clientX;
+      const containerWidth = this.layoutEl.offsetWidth;
+      const startRatio = this.splitRatio;
+      const onMouseMove = (moveEvt: MouseEvent) => {
+        const delta = moveEvt.clientX - startX;
+        const newRatio = Math.min(80, Math.max(10, startRatio + (delta / containerWidth) * 100));
+        this.splitRatio = newRatio;
+        this.layoutEl.style.gridTemplateColumns = `${newRatio}% 4px 1fr`;
+      };
+      const onMouseUp = () => {
+        this.resizerEl.removeClass("is-dragging");
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        this.plugin.settings.defaultSplitRatio = Math.round(this.splitRatio);
+        void this.plugin.saveSettings();
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
     });
     this.rightEl = this.layoutEl.createDiv({ cls: "fm-right" });
     this.detailsEl = this.rightEl.createDiv({ cls: "fm-details" });
@@ -746,10 +780,31 @@ class FmView extends ItemView {
       this.selectedIndex = Math.max(0, this.entries.length - 1);
     if (this.selectedIndex < 0) this.selectedIndex = 0;
 
-    // Render path
-    const path =
-      this.currentFolder.path === "/" ? "/" : this.currentFolder.path;
-    this.pathEl.setText(path);
+    // Render breadcrumb path
+    this.pathEl.empty();
+    const folderPath = this.currentFolder.path;
+    if (folderPath === "/") {
+      const seg = this.pathEl.createEl("span", { cls: "fm-breadcrumb-segment is-current", text: "/" });
+      seg.setAttr("title", "/");
+    } else {
+      // Root segment
+      const rootSeg = this.pathEl.createEl("span", { cls: "fm-breadcrumb-segment", text: "/" });
+      rootSeg.addEventListener("click", () => this.setStartFolder("/"));
+      const segments = folderPath.split("/");
+      for (let i = 0; i < segments.length; i++) {
+        this.pathEl.createEl("span", { cls: "fm-breadcrumb-sep", text: " > " });
+        const segPath = segments.slice(0, i + 1).join("/");
+        const isCurrent = i === segments.length - 1;
+        const seg = this.pathEl.createEl("span", {
+          cls: "fm-breadcrumb-segment" + (isCurrent ? " is-current" : ""),
+          text: segments[i],
+        });
+        seg.setAttr("title", segPath);
+        if (!isCurrent) {
+          seg.addEventListener("click", () => this.setStartFolder(segPath));
+        }
+      }
+    }
 
     this.renderList();
 
@@ -1002,6 +1057,18 @@ class FmView extends ItemView {
         highlightQuery,
       );
 
+      // Inline metadata badge
+      if (this.showInlineMetadata) {
+        const metaEl = item.createEl("span", { cls: "fm-item-meta" });
+        if (entry instanceof TFile) {
+          const date = new Date(entry.stat.mtime);
+          metaEl.textContent = `${SHORT_MONTH_NAMES[date.getMonth()]} ${date.getDate()}`;
+        } else if (entry instanceof TFolder) {
+          const count = (entry.children || []).length;
+          metaEl.textContent = `${count} item${count !== 1 ? "s" : ""}`;
+        }
+      }
+
       // Mouse support - click to select
       item.addEventListener("click", () => {
         if (this.selectedIndex !== idx) {
@@ -1252,6 +1319,7 @@ class FmView extends ItemView {
     } else {
       new Notice(`Copied ${entries.length} items`);
     }
+    this.renderStatusBar();
   }
 
   cutEntry() {
@@ -1269,6 +1337,7 @@ class FmView extends ItemView {
     } else {
       new Notice(`Cut ${entries.length} items (ready to move)`);
     }
+    this.renderStatusBar();
   }
 
   async deleteEntry() {
@@ -1440,6 +1509,8 @@ class FmView extends ItemView {
     
     // Clear selection after paste
     this.clearSelection();
+    // Re-render status bar to reflect updated clipboard state
+    this.renderStatusBar();
     this.render();
     
     // Show summary
@@ -2267,7 +2338,7 @@ class FmView extends ItemView {
     
     // Show selection count if any files are selected
     if (this.selectedFiles.size > 0) {
-      const selectionInfo = this.statusEl.createSpan({ 
+      this.statusEl.createSpan({ 
         cls: "fm-selection-info",
         text: `${this.selectedFiles.size} selected` 
       });
@@ -2303,6 +2374,23 @@ class FmView extends ItemView {
       });
       hintEl.createSpan({ text: hint.desc });
     });
+
+    // Clipboard indicator
+    if (this.clipboard && this.clipboard.length > 0 && this.clipboardOperation) {
+      const isCut = this.clipboardOperation === "cut";
+      const icon = isCut ? "✂" : "📋";
+      let label: string;
+      if (this.clipboard.length === 1) {
+        label = `${icon} ${this.clipboard[0]?.name ?? ""}`;
+      } else {
+        label = `${icon} ${this.clipboard.length} files`;
+      }
+      const indicator = this.statusEl.createSpan({
+        cls: "fm-clipboard-indicator" + (isCut ? " is-cut" : ""),
+        text: label,
+      });
+      indicator.setAttr("title", isCut ? "Ready to move" : "Ready to paste");
+    }
   }
 
   // --- Preview & details ---
@@ -2417,6 +2505,8 @@ interface FmPluginSettings {
   sortFoldersFirst: boolean;
   confirmCopy: boolean;
   confirmMove: boolean;
+  showInlineMetadata: boolean;
+  defaultSplitRatio: number;
 }
 
 const DEFAULT_SETTINGS: FmPluginSettings = {
@@ -2429,6 +2519,8 @@ const DEFAULT_SETTINGS: FmPluginSettings = {
   sortFoldersFirst: true,
   confirmCopy: false,
   confirmMove: false,
+  showInlineMetadata: false,
+  defaultSplitRatio: 40,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2439,11 +2531,15 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isNumber(value: unknown): value is number {
+  return typeof value === "number";
+}
+
 function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
   if (!isRecord(value)) return false;
   const entries = Object.entries(value);
   if (entries.length === 0) return true;
-  const allowedKeys = new Set<keyof FmPluginSettings>([
+  const booleanKeys = new Set<keyof FmPluginSettings>([
     "showPreview",
     "showDetails",
     "showHiddenFiles",
@@ -2452,12 +2548,18 @@ function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
     "sortFoldersFirst",
     "confirmCopy",
     "confirmMove",
+    "showInlineMetadata",
+    "deerMode",
+  ]);
+  const numberKeys = new Set<keyof FmPluginSettings>([
+    "defaultSplitRatio",
   ]);
   for (const [key, settingValue] of entries) {
-    if (!allowedKeys.has(key as keyof FmPluginSettings)) {
-      return false;
-    }
-    if (!isBoolean(settingValue)) {
+    if (booleanKeys.has(key as keyof FmPluginSettings)) {
+      if (!isBoolean(settingValue)) return false;
+    } else if (numberKeys.has(key as keyof FmPluginSettings)) {
+      if (!isNumber(settingValue)) return false;
+    } else {
       return false;
     }
   }
@@ -2724,6 +2826,50 @@ class FmSettingTab extends PluginSettingTab {
           .onChange(async (v) => {
             this.plugin.settings.confirmMove = v;
             await this.plugin.saveSettings();
+          }),
+      );
+
+    containerEl.createEl("h4", { text: "Layout" });
+
+    new Setting(containerEl)
+      .setName("Default split ratio (%)")
+      .setDesc("Width of the file list pane as a percentage (10–80). Can also be adjusted by dragging the divider.")
+      .addSlider((s) =>
+        s
+          .setLimits(10, 80, 1)
+          .setValue(this.plugin.settings.defaultSplitRatio)
+          .setDynamicTooltip()
+          .onChange(async (v) => {
+            this.plugin.settings.defaultSplitRatio = v;
+            await this.plugin.saveSettings();
+            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+            for (const leaf of leaves) {
+              const view = leaf.view as FmView;
+              view.splitRatio = v;
+              if (view.layoutEl) {
+                view.layoutEl.style.gridTemplateColumns = `${v}% 4px 1fr`;
+              }
+            }
+          }),
+      );
+
+    containerEl.createEl("h4", { text: "Inline metadata" });
+
+    new Setting(containerEl)
+      .setName("Show inline metadata")
+      .setDesc("Display last-modified date on files and child count on folders in the file list")
+      .addToggle((t) =>
+        t
+          .setValue(!!this.plugin.settings.showInlineMetadata)
+          .onChange(async (v) => {
+            this.plugin.settings.showInlineMetadata = v;
+            await this.plugin.saveSettings();
+            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+            for (const leaf of leaves) {
+              const view = leaf.view as FmView;
+              view.showInlineMetadata = v;
+              view.renderList();
+            }
           }),
       );
   }

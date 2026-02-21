@@ -17,6 +17,39 @@
   border-radius: var(--radius-m);
   font-weight: var(--font-normal);
 }
+
+.fm-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+}
+.fm-breadcrumb-segment {
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--animation-duration-fast) ease;
+  border-radius: var(--radius-xs);
+  padding: 0 2px;
+}
+.fm-breadcrumb-segment:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+.fm-breadcrumb-segment.is-current {
+  color: var(--text-normal);
+  cursor: default;
+  text-decoration: none;
+}
+.fm-breadcrumb-sep {
+  color: var(--text-faint);
+  margin: 0 2px;
+  user-select: none;
+}
 .fm-fm .fm-search { 
   margin-bottom: var(--size-4-2); 
 }
@@ -39,7 +72,7 @@
 
 .fm-fm .fm-layout {
   display: grid;
-  grid-template-columns: 40% 60%;
+  grid-template-columns: 40% 4px 1fr;
   gap: var(--size-4-2);
   flex: 1;
   min-height: 0;
@@ -50,6 +83,22 @@
 }
 .fm-fm.single .fm-right {
   display: none;
+}
+.fm-fm.single .fm-resizer {
+  display: none;
+}
+
+.fm-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  border-radius: 2px;
+  transition: background var(--animation-duration-fast);
+  align-self: stretch;
+}
+.fm-resizer:hover,
+.fm-resizer.is-dragging {
+  background: var(--interactive-accent);
 }
 
 .fm-fm .fm-left { min-height: 0; }
@@ -294,4 +343,33 @@
   justify-content: flex-end;
   gap: var(--size-4-2);
   margin-top: var(--size-4-3);
+}
+
+/* Inline file metadata badge */
+.fm-item-meta {
+  margin-left: auto;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+  padding-left: var(--size-4-2);
+  flex-shrink: 0;
+}
+.fm-item.is-selected .fm-item-meta {
+  color: var(--text-on-accent);
+  opacity: 0.75;
+}
+
+/* Clipboard indicator in status bar */
+.fm-clipboard-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  color: var(--interactive-accent);
+  font-weight: var(--font-semibold);
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: var(--size-4-2);
+  margin-left: var(--size-4-2);
+}
+.fm-clipboard-indicator.is-cut {
+  color: var(--color-orange);
 }
