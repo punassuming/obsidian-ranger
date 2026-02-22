@@ -241,6 +241,24 @@
   font-size: var(--font-ui-small);
   line-height: var(--line-height-tight);
 }
+.fm-fm .fm-preview-dir {
+  padding: var(--size-2-2);
+}
+.fm-fm .fm-preview-dir-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+.fm-fm .fm-preview-dir-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 
 /* Status bar */
 .fm-fm .fm-status {
