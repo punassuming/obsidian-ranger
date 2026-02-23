@@ -328,8 +328,8 @@ class FmView extends ItemView {
   chordOverlayEl: HTMLElement | null;
   chordOverlayTitleEl: HTMLElement | null;
   chordOverlayListEl: HTMLElement | null;
-  _gTimer: number | null;
-  _zTimer: number | null;
+  _gChordPending: boolean;
+  _zChordPending: boolean;
   hostEl: HTMLElement;
   pathEl: HTMLElement;
   resizerEl: HTMLElement;
@@ -385,8 +385,8 @@ class FmView extends ItemView {
     this.chordOverlayEl = null;
     this.chordOverlayTitleEl = null;
     this.chordOverlayListEl = null;
-    this._gTimer = null;
-    this._zTimer = null;
+    this._gChordPending = false;
+    this._zChordPending = false;
   }
 
   getViewType() {
@@ -549,6 +549,7 @@ class FmView extends ItemView {
     if (!this.showPreview) {
       this.previewEl.addClass("is-hidden");
       this.hostEl.addClass("single");
+      this.layoutEl.style.gridTemplateColumns = "";
     }
 
     // Status bar with keyboard hints
@@ -562,7 +563,7 @@ class FmView extends ItemView {
     this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
-      if (k === "Escape" && (this._gTimer || this._zTimer)) {
+      if (k === "Escape" && (this._gChordPending || this._zChordPending)) {
         evt.preventDefault();
         evt.stopPropagation();
         this.cancelChordOverlay();
@@ -571,7 +572,7 @@ class FmView extends ItemView {
       if (this.hasOpenModal()) {
         return;
       }
-      if (this._gTimer) {
+      if (this._gChordPending) {
         // Preserve case to distinguish gt and gT.
         const option = G_CHORD_OPTIONS.find(
           (entry) => entry.keys[1] === k,
@@ -579,14 +580,13 @@ class FmView extends ItemView {
         if (option) {
           evt.preventDefault();
           evt.stopPropagation();
-          window.clearTimeout(this._gTimer);
-          this._gTimer = null;
+          this._gChordPending = false;
           this.hideChordOverlay();
           option.action(this);
           return;
         }
       }
-      if (this._zTimer) {
+      if (this._zChordPending) {
         const normalizedKey = k.toLowerCase();
         const option = Z_CHORD_OPTIONS.find(
           (entry) => entry.keys[1] === normalizedKey,
@@ -594,8 +594,7 @@ class FmView extends ItemView {
         if (option) {
           evt.preventDefault();
           evt.stopPropagation();
-          window.clearTimeout(this._zTimer);
-          this._zTimer = null;
+          this._zChordPending = false;
           this.hideChordOverlay();
           option.action(this);
           return;
@@ -1146,34 +1145,26 @@ class FmView extends ItemView {
 
   // Jump handlers
   handleG() {
-    if (this._gTimer) {
+    if (this._gChordPending) {
       // second 'g' - jump to top
-      window.clearTimeout(this._gTimer);
-      this._gTimer = null;
+      this._gChordPending = false;
       this.hideChordOverlay();
       this.jumpTop();
       return;
     }
     
-    this._gTimer = window.setTimeout(() => {
-      this._gTimer = null;
-      this.hideChordOverlay();
-    }, 400);
+    this._gChordPending = true;
     this.showChordOverlay("g", G_CHORD_OPTIONS);
   }
 
   handleZ() {
-    if (this._zTimer) {
+    if (this._zChordPending) {
       // second key in chord
-      window.clearTimeout(this._zTimer);
-      this._zTimer = null;
+      this._zChordPending = false;
       this.hideChordOverlay();
       return;
     }
-    this._zTimer = window.setTimeout(() => {
-      this._zTimer = null;
-      this.hideChordOverlay();
-    }, 400);
+    this._zChordPending = true;
     this.showChordOverlay("z", Z_CHORD_OPTIONS);
   }
 
@@ -1229,13 +1220,11 @@ class FmView extends ItemView {
   }
 
   cancelChordOverlay() {
-    if (this._gTimer) {
-      window.clearTimeout(this._gTimer);
-      this._gTimer = null;
+    if (this._gChordPending) {
+      this._gChordPending = false;
     }
-    if (this._zTimer) {
-      window.clearTimeout(this._zTimer);
-      this._zTimer = null;
+    if (this._zChordPending) {
+      this._zChordPending = false;
     }
     this.hideChordOverlay();
   }
@@ -1901,6 +1890,11 @@ class FmView extends ItemView {
       if (this.showPreview) this.hostEl.removeClass("single");
       else this.hostEl.addClass("single");
     }
+    if (this.layoutEl) {
+      this.layoutEl.style.gridTemplateColumns = this.showPreview
+        ? `${this.splitRatio}% 4px 1fr`
+        : "";
+    }
     this.renderPreview();
   }
 
@@ -1932,10 +1926,15 @@ class FmView extends ItemView {
       else view.detailsEl.addClass("is-hidden");
     }
 
-    // Update hostEl class for layout
+    // Update hostEl class and layout columns for single/split mode
     if (view.hostEl) {
       if (view.showPreview) view.hostEl.removeClass("single");
       else view.hostEl.addClass("single");
+    }
+    if (view.layoutEl) {
+      view.layoutEl.style.gridTemplateColumns = view.showPreview
+        ? `${view.splitRatio}% 4px 1fr`
+        : "";
     }
 
     view.renderPreview();
@@ -2425,7 +2424,28 @@ class FmView extends ItemView {
       const fcount = kids.length - dcount;
       if (meta)
         meta.setText(`${entry.path} • ${dcount} folders, ${fcount} files`);
-      return; // nothing to render as markdown
+      // Show directory contents in the preview pane
+      if (this.showPreview) {
+        if (kids.length === 0) {
+          this.previewEl.createEl("div", {
+            cls: "fm-empty",
+            text: "Empty folder",
+          });
+        } else {
+          const list = this.previewEl.createEl("div", { cls: "fm-preview-dir" });
+          for (const kid of kids) {
+            const row = list.createEl("div", { cls: "fm-preview-dir-item" });
+            const iconEl = row.createEl("span", { cls: "fm-icon" });
+            setEntryIcon(iconEl, kid);
+            iconEl.setAttr("aria-hidden", "true");
+            row.createEl("span", {
+              cls: "fm-preview-dir-name",
+              text: this.getEntryLabel(kid),
+            });
+          }
+        }
+      }
+      return;
     }
 
     // File details
@@ -2702,6 +2722,11 @@ class FmSettingTab extends PluginSettingTab {
             if (view.hostEl) {
               if (v) view.hostEl.removeClass("single");
               else view.hostEl.addClass("single");
+            }
+            if (view.layoutEl) {
+              view.layoutEl.style.gridTemplateColumns = v
+                ? `${view.splitRatio}% 4px 1fr`
+                : "";
             }
           }
         }),
