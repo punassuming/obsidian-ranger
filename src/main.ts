@@ -566,13 +566,10 @@ class FmView extends ItemView {
     this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
-      if (k === "Escape" && this.isChordPending()) {
+      if (k === "Escape" && (this.isChordPending() || this.isChordOverlayVisible())) {
         evt.preventDefault();
         evt.stopPropagation();
         this.cancelChordOverlay();
-        return;
-      }
-      if (this.hasOpenModal()) {
         return;
       }
       if (this.isChordPending()) {
@@ -586,6 +583,9 @@ class FmView extends ItemView {
         }
         // Any other key cancels the pending chord so the overlay cannot get stuck.
         this.cancelChordOverlay();
+        return;
+      }
+      if (this.hasOpenModal()) {
         return;
       }
       if (activeInSearch) {
@@ -1150,7 +1150,7 @@ class FmView extends ItemView {
     if (!this.chordOverlayEl) {
       this.chordOverlayEl = this.hostEl.createDiv({
         cls: "fm-chord-overlay is-hidden",
-        attr: { role: "status", "aria-live": "polite" },
+        attr: { role: "status", "aria-live": "polite", hidden: "true", "aria-hidden": "true" },
       });
       const panel = this.chordOverlayEl.createDiv({
         cls: "fm-chord-overlay-panel",
@@ -1188,6 +1188,9 @@ class FmView extends ItemView {
       item.createSpan({ cls: "fm-chord-overlay-desc", text: option.desc });
     });
     this.chordOverlayEl.removeClass("is-hidden");
+    this.chordOverlayEl.removeAttribute("hidden");
+    this.chordOverlayEl.setAttr("aria-hidden", "false");
+    this.chordOverlayEl.style.display = "";
     this.startChordTimeout();
   }
 
@@ -1195,6 +1198,9 @@ class FmView extends ItemView {
     this.clearChordTimeout();
     if (this.chordOverlayEl) {
       this.chordOverlayEl.addClass("is-hidden");
+      this.chordOverlayEl.setAttr("hidden", "true");
+      this.chordOverlayEl.setAttr("aria-hidden", "true");
+      this.chordOverlayEl.style.display = "none";
     }
   }
 
@@ -1210,6 +1216,10 @@ class FmView extends ItemView {
 
   isChordPending() {
     return this._gChordPending || this._zChordPending;
+  }
+
+  isChordOverlayVisible() {
+    return !!this.chordOverlayEl && !this.chordOverlayEl.hasClass("is-hidden");
   }
 
   clearChordTimeout() {

@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chord overlay (`g`/`z` key-combo helper) now times out automatically after 2.5 seconds.
 - Pressing `Esc` while a chord overlay is open now dismisses the overlay instead of closing File Nav.
 - Invalid second keys now cancel the pending chord so the overlay cannot remain stuck.
+- Chord overlay visibility now uses explicit `hidden`/`aria-hidden` state to prevent stuck overlays when key state gets out of sync.
 
 ### Planned
 - Screenshot for documentation
