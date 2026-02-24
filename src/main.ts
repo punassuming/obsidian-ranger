@@ -219,6 +219,7 @@ function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
 
 const VIEW_TYPE_FM = "file-nav-ranger-view";
 const TAB_SWITCH_NOTICE_THROTTLE_MS = 500;
+const CHORD_PENDING_TIMEOUT_MS = 2500;
 const ENTRY_NAME_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
@@ -330,6 +331,7 @@ class FmView extends ItemView {
   chordOverlayListEl: HTMLElement | null;
   _gChordPending: boolean;
   _zChordPending: boolean;
+  chordTimeoutId: number | null;
   hostEl: HTMLElement;
   pathEl: HTMLElement;
   resizerEl: HTMLElement;
@@ -387,6 +389,7 @@ class FmView extends ItemView {
     this.chordOverlayListEl = null;
     this._gChordPending = false;
     this._zChordPending = false;
+    this.chordTimeoutId = null;
   }
 
   getViewType() {
@@ -563,7 +566,7 @@ class FmView extends ItemView {
     this.registerDomEvent(this.contentEl, "keydown", (evt) => {
       const activeInSearch = document.activeElement === this.searchInputEl;
       const k = evt.key;
-      if (k === "Escape" && (this._gChordPending || this._zChordPending)) {
+      if (k === "Escape" && this.isChordPending()) {
         evt.preventDefault();
         evt.stopPropagation();
         this.cancelChordOverlay();
@@ -572,33 +575,18 @@ class FmView extends ItemView {
       if (this.hasOpenModal()) {
         return;
       }
-      if (this._gChordPending) {
-        // Preserve case to distinguish gt and gT.
-        const option = G_CHORD_OPTIONS.find(
-          (entry) => entry.keys[1] === k,
-        );
-        if (option) {
-          evt.preventDefault();
-          evt.stopPropagation();
-          this._gChordPending = false;
-          this.hideChordOverlay();
-          option.action(this);
+      if (this.isChordPending()) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (this.tryHandleChordFollowup(k)) {
           return;
         }
-      }
-      if (this._zChordPending) {
-        const normalizedKey = k.toLowerCase();
-        const option = Z_CHORD_OPTIONS.find(
-          (entry) => entry.keys[1] === normalizedKey,
-        );
-        if (option) {
-          evt.preventDefault();
-          evt.stopPropagation();
-          this._zChordPending = false;
-          this.hideChordOverlay();
-          option.action(this);
+        if (this.isModifierKey(k)) {
           return;
         }
+        // Any other key cancels the pending chord so the overlay cannot get stuck.
+        this.cancelChordOverlay();
+        return;
       }
       if (activeInSearch) {
         // While typing, still honor Ctrl+j/k to move within filtered list
@@ -690,7 +678,7 @@ class FmView extends ItemView {
   }
 
   async onClose() {
-    // nothing special
+    this.cancelChordOverlay();
   }
 
   setStartFolder(path: string | null) {
@@ -917,6 +905,7 @@ class FmView extends ItemView {
 
   // --- Search ---
   enterSearchMode(mode: string) {
+    this.cancelChordOverlay();
     const isRepeat = this.searchActive && this.searchMode === mode;
     this.searchActive = true;
     this.searchMode = mode;
@@ -1145,25 +1134,13 @@ class FmView extends ItemView {
 
   // Jump handlers
   handleG() {
-    if (this._gChordPending) {
-      // second 'g' - jump to top
-      this._gChordPending = false;
-      this.hideChordOverlay();
-      this.jumpTop();
-      return;
-    }
-    
+    this.cancelChordOverlay();
     this._gChordPending = true;
     this.showChordOverlay("g", G_CHORD_OPTIONS);
   }
 
   handleZ() {
-    if (this._zChordPending) {
-      // second key in chord
-      this._zChordPending = false;
-      this.hideChordOverlay();
-      return;
-    }
+    this.cancelChordOverlay();
     this._zChordPending = true;
     this.showChordOverlay("z", Z_CHORD_OPTIONS);
   }
@@ -1211,9 +1188,11 @@ class FmView extends ItemView {
       item.createSpan({ cls: "fm-chord-overlay-desc", text: option.desc });
     });
     this.chordOverlayEl.removeClass("is-hidden");
+    this.startChordTimeout();
   }
 
   hideChordOverlay() {
+    this.clearChordTimeout();
     if (this.chordOverlayEl) {
       this.chordOverlayEl.addClass("is-hidden");
     }
@@ -1229,10 +1208,57 @@ class FmView extends ItemView {
     this.hideChordOverlay();
   }
 
+  isChordPending() {
+    return this._gChordPending || this._zChordPending;
+  }
+
+  clearChordTimeout() {
+    if (this.chordTimeoutId !== null) {
+      window.clearTimeout(this.chordTimeoutId);
+      this.chordTimeoutId = null;
+    }
+  }
+
+  startChordTimeout() {
+    this.clearChordTimeout();
+    this.chordTimeoutId = window.setTimeout(() => {
+      this.cancelChordOverlay();
+    }, CHORD_PENDING_TIMEOUT_MS);
+  }
+
+  tryHandleChordFollowup(key: string) {
+    if (this._gChordPending) {
+      // Preserve case to distinguish gt and gT.
+      const option = G_CHORD_OPTIONS.find((entry) => entry.keys[1] === key);
+      if (!option) return false;
+      this.cancelChordOverlay();
+      option.action(this);
+      return true;
+    }
+    if (this._zChordPending) {
+      const normalizedKey = key.toLowerCase();
+      const option = Z_CHORD_OPTIONS.find(
+        (entry) => entry.keys[1] === normalizedKey,
+      );
+      if (!option) return false;
+      this.cancelChordOverlay();
+      option.action(this);
+      return true;
+    }
+    return false;
+  }
+
+  isModifierKey(key: string) {
+    return key === "Shift" || key === "Control" || key === "Alt" || key === "Meta";
+  }
+
   hasOpenModal() {
     const stack = (this.app.workspace as { modalStack?: unknown[] }).modalStack;
     if (Array.isArray(stack) && stack.length > 0) return true;
-    return document.querySelector(".modal-container:not(.is-hidden)") !== null;
+    if (document.querySelector(".modal-container:not(.is-hidden)") !== null) return true;
+    if (document.querySelector(".modal.mod-dim") !== null) return true;
+    const activeEl = document.activeElement;
+    return activeEl instanceof HTMLElement && activeEl.closest(".modal") !== null;
   }
 
   focusNavigation() {

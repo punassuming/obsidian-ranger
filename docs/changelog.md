@@ -107,6 +107,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New Command**: "Open File Nav in new tab" available in Command Palette
 - Enhanced `handleG()` to support multi-key combinations similar to vim
 
+### Fixed
+- Chord overlay (`g`/`z` key-combo helper) now times out automatically after 2.5 seconds.
+- Pressing `Esc` while a chord overlay is open now dismisses the overlay instead of closing File Nav.
+- Invalid second keys now cancel the pending chord so the overlay cannot remain stuck.
+
 ### Planned
 - Screenshot for documentation
 - Additional keyboard shortcuts
