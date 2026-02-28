@@ -294,8 +294,8 @@ const Z_CHORD_OPTIONS: ChordOption[] = [
   },
 ];
 function normalizePathForPrefixCheck(path: string): string {
-  const p = path && path !== "/" ? path.replace(/\/+$/, "") : "/";
-  return p || "/";
+  if (!path || path === "/") return "/";
+  return path.replace(/\/+$/, "");
 }
 
 function isDescendantPath(parentPath: string, maybeChildPath: string): boolean {
@@ -303,6 +303,13 @@ function isDescendantPath(parentPath: string, maybeChildPath: string): boolean {
   const child = normalizePathForPrefixCheck(maybeChildPath);
   if (parent === "/") return child !== "/";
   return child.startsWith(parent + "/");
+}
+
+function isFolderIntoDescendant(source: Entry, destFolder: TFolder): boolean {
+  if (!(source instanceof TFolder)) return false;
+  const srcPath = normalizePathForPrefixCheck(source.path);
+  const destPath = normalizePathForPrefixCheck(destFolder.path);
+  return srcPath === destPath || isDescendantPath(srcPath, destPath);
 }
 
 class FmView extends ItemView {
@@ -462,7 +469,7 @@ class FmView extends ItemView {
     this.initialized = true;
 
     // Keep view in sync with external changes (other panes/plugins/sync).
-    const scheduleRefresh = () => this.scheduleVaultRefresh();
+    const scheduleRefresh = this.scheduleVaultRefresh.bind(this);
     this.registerEvent(this.app.vault.on("create", scheduleRefresh));
     this.registerEvent(this.app.vault.on("delete", scheduleRefresh));
     this.registerEvent(this.app.vault.on("rename", scheduleRefresh));
@@ -1552,14 +1559,10 @@ class FmView extends ItemView {
       let success = false;
       try {
         // Safety: prevent pasting/moving/copying a folder into itself or any descendant.
-        if (source instanceof TFolder) {
-          const srcPath = normalizePathForPrefixCheck(source.path);
-          const destPath = normalizePathForPrefixCheck(destFolder.path);
-          if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
-            new Notice(`Cannot paste folder into itself or a descendant: ${source.name}`);
-            failCount++;
-            continue;
-          }
+        if (isFolderIntoDescendant(source, destFolder)) {
+          new Notice(`Cannot paste folder into itself or a descendant: ${source.name}`);
+          failCount++;
+          continue;
         }
         // Use helper to check if we're pasting in the same location
         if (this.isSameFolderCopy(source, destFolder)) {
@@ -1739,13 +1742,9 @@ class FmView extends ItemView {
   }
 
   async copyToFolder(source: Entry, destFolder: TFolder) {
-    if (source instanceof TFolder) {
-      const srcPath = normalizePathForPrefixCheck(source.path);
-      const destPath = normalizePathForPrefixCheck(destFolder.path);
-      if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
-        new Notice(`Cannot copy folder into itself or a descendant: ${source.name}`);
-        return false;
-      }
+    if (isFolderIntoDescendant(source, destFolder)) {
+      new Notice(`Cannot copy folder into itself or a descendant: ${source.name}`);
+      return false;
     }
     const newPath =
       destFolder.path === "/"
@@ -1791,13 +1790,9 @@ class FmView extends ItemView {
   }
 
   async moveToFolder(source: Entry, destFolder: TFolder) {
-    if (source instanceof TFolder) {
-      const srcPath = normalizePathForPrefixCheck(source.path);
-      const destPath = normalizePathForPrefixCheck(destFolder.path);
-      if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
-        new Notice(`Cannot move folder into itself or a descendant: ${source.name}`);
-        return false;
-      }
+    if (isFolderIntoDescendant(source, destFolder)) {
+      new Notice(`Cannot move folder into itself or a descendant: ${source.name}`);
+      return false;
     }
     const newPath =
       destFolder.path === "/"
