@@ -111,6 +111,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chord overlay (`g`/`z` key-combo helper) now times out automatically after 2.5 seconds.
 - Pressing `Esc` while a chord overlay is open now dismisses the overlay instead of closing File Nav.
 - Invalid second keys now cancel the pending chord so the overlay cannot remain stuck.
+- Expired pending key chords now clear before processing the next key, so normal navigation keys are no longer swallowed after timeout.
+- Updating split ratio while preview is hidden now keeps the file pane at full width.
+
+### Changed
+- Reduced the default file-list split ratio from 40% to 35% to give the preview pane more room by default.
 
 ### Planned
 - Screenshot for documentation

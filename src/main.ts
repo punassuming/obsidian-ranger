@@ -332,6 +332,7 @@ class FmView extends ItemView {
   _gChordPending: boolean;
   _zChordPending: boolean;
   chordTimeoutId: number | null;
+  chordPendingUntil: number | null;
   hostEl: HTMLElement;
   pathEl: HTMLElement;
   resizerEl: HTMLElement;
@@ -371,7 +372,7 @@ class FmView extends ItemView {
     this.showFileExtensions = true;
     this.sortFoldersFirst = true;
     this.showInlineMetadata = false;
-    this.splitRatio = 40;
+    this.splitRatio = 35;
     this.previewMode = "rendered";
     // Clipboard for copy/move operations
     this.clipboard = null;
@@ -390,6 +391,7 @@ class FmView extends ItemView {
     this._gChordPending = false;
     this._zChordPending = false;
     this.chordTimeoutId = null;
+    this.chordPendingUntil = null;
   }
 
   getViewType() {
@@ -457,7 +459,7 @@ class FmView extends ItemView {
       this.showFileExtensions = !!s.showFileExtensions;
       this.sortFoldersFirst = !!s.sortFoldersFirst;
       this.showInlineMetadata = !!s.showInlineMetadata;
-      this.splitRatio = typeof s.defaultSplitRatio === "number" ? s.defaultSplitRatio : 40;
+      this.splitRatio = typeof s.defaultSplitRatio === "number" ? s.defaultSplitRatio : 35;
     }
     const fileFromPath = (p: string | null) =>
       p ? this.app.vault.getAbstractFileByPath(p) : null;
@@ -1209,7 +1211,12 @@ class FmView extends ItemView {
   }
 
   isChordPending() {
-    return this._gChordPending || this._zChordPending;
+    if (!this._gChordPending && !this._zChordPending) return false;
+    if (this.chordPendingUntil !== null && Date.now() >= this.chordPendingUntil) {
+      this.cancelChordOverlay();
+      return false;
+    }
+    return true;
   }
 
   clearChordTimeout() {
@@ -1217,10 +1224,12 @@ class FmView extends ItemView {
       window.clearTimeout(this.chordTimeoutId);
       this.chordTimeoutId = null;
     }
+    this.chordPendingUntil = null;
   }
 
   startChordTimeout() {
     this.clearChordTimeout();
+    this.chordPendingUntil = Date.now() + CHORD_PENDING_TIMEOUT_MS;
     this.chordTimeoutId = window.setTimeout(() => {
       this.cancelChordOverlay();
     }, CHORD_PENDING_TIMEOUT_MS);
@@ -2566,7 +2575,7 @@ const DEFAULT_SETTINGS: FmPluginSettings = {
   confirmCopy: false,
   confirmMove: false,
   showInlineMetadata: false,
-  defaultSplitRatio: 40,
+  defaultSplitRatio: 35,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2898,7 +2907,9 @@ class FmSettingTab extends PluginSettingTab {
               const view = leaf.view as FmView;
               view.splitRatio = v;
               if (view.layoutEl) {
-                view.layoutEl.style.gridTemplateColumns = `${v}% 4px 1fr`;
+                view.layoutEl.style.gridTemplateColumns = view.showPreview
+                  ? `${v}% 4px 1fr`
+                  : "1fr";
               }
             }
           }),
