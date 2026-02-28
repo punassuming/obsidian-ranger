@@ -72,7 +72,7 @@
 
 .fm-fm .fm-layout {
   display: grid;
-  grid-template-columns: 40% 4px 1fr;
+  grid-template-columns: 35% 4px 1fr;
   gap: var(--size-4-2);
   flex: 1;
   min-height: 0;
