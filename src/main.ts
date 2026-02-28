@@ -220,6 +220,7 @@ function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
 const VIEW_TYPE_FM = "file-nav-ranger-view";
 const TAB_SWITCH_NOTICE_THROTTLE_MS = 500;
 const CHORD_PENDING_TIMEOUT_MS = 2500;
+const VAULT_REFRESH_DEBOUNCE_MS = 150;
 const ENTRY_NAME_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
@@ -292,6 +293,18 @@ const Z_CHORD_OPTIONS: ChordOption[] = [
     action: (view: FmView) => { void view.toggleDeerMode(); },
   },
 ];
+function normalizePathForPrefixCheck(path: string): string {
+  const p = path && path !== "/" ? path.replace(/\/+$/, "") : "/";
+  return p || "/";
+}
+
+function isDescendantPath(parentPath: string, maybeChildPath: string): boolean {
+  const parent = normalizePathForPrefixCheck(parentPath);
+  const child = normalizePathForPrefixCheck(maybeChildPath);
+  if (parent === "/") return child !== "/";
+  return child.startsWith(parent + "/");
+}
+
 class FmView extends ItemView {
   app: App;
   plugin: FmPlugin;
@@ -331,6 +344,8 @@ class FmView extends ItemView {
   chordOverlayListEl: HTMLElement | null;
   _gChordPending: boolean;
   _zChordPending: boolean;
+  _vaultRefreshTimer: number | null;
+  _vaultRefreshRequested: boolean;
   chordTimeoutId: number | null;
   chordPendingUntil: number | null;
   hostEl: HTMLElement;
@@ -390,6 +405,8 @@ class FmView extends ItemView {
     this.chordOverlayListEl = null;
     this._gChordPending = false;
     this._zChordPending = false;
+    this._vaultRefreshTimer = null;
+    this._vaultRefreshRequested = false;
     this.chordTimeoutId = null;
     this.chordPendingUntil = null;
   }
@@ -443,6 +460,14 @@ class FmView extends ItemView {
 
   async onOpen() {
     this.initialized = true;
+
+    // Keep view in sync with external changes (other panes/plugins/sync).
+    const scheduleRefresh = () => this.scheduleVaultRefresh();
+    this.registerEvent(this.app.vault.on("create", scheduleRefresh));
+    this.registerEvent(this.app.vault.on("delete", scheduleRefresh));
+    this.registerEvent(this.app.vault.on("rename", scheduleRefresh));
+    this.registerEvent(this.app.vault.on("modify", scheduleRefresh));
+
     // adopt defaults from plugin settings if available
     const s = this.plugin?.settings;
     if (s) {
@@ -680,7 +705,33 @@ class FmView extends ItemView {
   }
 
   async onClose() {
+    if (this._vaultRefreshTimer !== null) {
+      window.clearTimeout(this._vaultRefreshTimer);
+      this._vaultRefreshTimer = null;
+    }
     this.cancelChordOverlay();
+  }
+
+  scheduleVaultRefresh() {
+    if (!this.initialized) return;
+    this._vaultRefreshRequested = true;
+    if (this._vaultRefreshTimer !== null) return;
+    this._vaultRefreshTimer = window.setTimeout(() => {
+      this._vaultRefreshTimer = null;
+      if (!this._vaultRefreshRequested) return;
+      this._vaultRefreshRequested = false;
+      const selectedPath = this.entries?.[this.selectedIndex]?.path ?? null;
+      this.allEntries = this.getFolderEntries(this.currentFolder);
+      this.updateEntriesForFilter();
+      if (selectedPath) {
+        const idx = this.entries.findIndex((e) => e.path === selectedPath);
+        if (idx >= 0) this.selectedIndex = idx;
+      }
+      if (this.selectedIndex >= this.entries.length) {
+        this.selectedIndex = Math.max(0, this.entries.length - 1);
+      }
+      this.render();
+    }, VAULT_REFRESH_DEBOUNCE_MS);
   }
 
   setStartFolder(path: string | null) {
@@ -1117,7 +1168,7 @@ class FmView extends ItemView {
       }
       if (idx > i) html += this.escapeHtml(n.slice(i, idx));
       html +=
-        '<span class="ranger-match">' +
+        '<span class="fm-match">' +
         this.escapeHtml(n.slice(idx, idx + q.length)) +
         "</span>";
       i = idx + q.length;
@@ -1500,6 +1551,16 @@ class FmView extends ItemView {
     for (const source of sources) {
       let success = false;
       try {
+        // Safety: prevent pasting/moving/copying a folder into itself or any descendant.
+        if (source instanceof TFolder) {
+          const srcPath = normalizePathForPrefixCheck(source.path);
+          const destPath = normalizePathForPrefixCheck(destFolder.path);
+          if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
+            new Notice(`Cannot paste folder into itself or a descendant: ${source.name}`);
+            failCount++;
+            continue;
+          }
+        }
         // Use helper to check if we're pasting in the same location
         if (this.isSameFolderCopy(source, destFolder)) {
           // Need to create a copy with a different name
@@ -1678,6 +1739,14 @@ class FmView extends ItemView {
   }
 
   async copyToFolder(source: Entry, destFolder: TFolder) {
+    if (source instanceof TFolder) {
+      const srcPath = normalizePathForPrefixCheck(source.path);
+      const destPath = normalizePathForPrefixCheck(destFolder.path);
+      if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
+        new Notice(`Cannot copy folder into itself or a descendant: ${source.name}`);
+        return false;
+      }
+    }
     const newPath =
       destFolder.path === "/"
         ? source.name
@@ -1722,6 +1791,14 @@ class FmView extends ItemView {
   }
 
   async moveToFolder(source: Entry, destFolder: TFolder) {
+    if (source instanceof TFolder) {
+      const srcPath = normalizePathForPrefixCheck(source.path);
+      const destPath = normalizePathForPrefixCheck(destFolder.path);
+      if (srcPath === destPath || isDescendantPath(srcPath, destPath)) {
+        new Notice(`Cannot move folder into itself or a descendant: ${source.name}`);
+        return false;
+      }
+    }
     const newPath =
       destFolder.path === "/"
         ? source.name
@@ -2148,6 +2225,17 @@ class FmView extends ItemView {
             try {
               await navigator.clipboard.writeText(entry.path);
             } catch {}
+          }),
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Delete (d)")
+          .setIcon("trash")
+          .onClick(async () => {
+            this.selectedIndex = this.entries.findIndex(
+              (e) => e.path === entry.path,
+            );
+            await this.deleteEntry();
           }),
       );
     }
