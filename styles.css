@@ -308,6 +308,10 @@
   pointer-events: none;
 }
 
+.fm-fm .fm-chord-overlay[hidden] {
+  display: none !important;
+}
+
 .fm-fm .fm-chord-overlay-panel {
   background: var(--background-primary);
   border: var(--border-width) solid var(--background-modifier-border);

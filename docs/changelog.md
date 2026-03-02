@@ -112,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing `Esc` while a chord overlay is open now dismisses the overlay instead of closing File Nav.
 - Invalid second keys now cancel the pending chord so the overlay cannot remain stuck.
 - Expired pending key chords now clear before processing the next key, so normal navigation keys are no longer swallowed after timeout.
+- Chord overlay visibility now uses an explicit hidden state, preventing the helper modal from remaining visible after chord timeout/cancel.
 - Updating split ratio while preview is hidden now keeps the file pane at full width.
 
 ### Changed

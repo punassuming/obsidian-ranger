@@ -1209,8 +1209,8 @@ class FmView extends ItemView {
     if (!this.hostEl) return;
     if (!this.chordOverlayEl) {
       this.chordOverlayEl = this.hostEl.createDiv({
-        cls: "fm-chord-overlay is-hidden",
-        attr: { role: "status", "aria-live": "polite" },
+        cls: "fm-chord-overlay",
+        attr: { role: "status", "aria-live": "polite", hidden: "true" },
       });
       const panel = this.chordOverlayEl.createDiv({
         cls: "fm-chord-overlay-panel",
@@ -1247,6 +1247,8 @@ class FmView extends ItemView {
       });
       item.createSpan({ cls: "fm-chord-overlay-desc", text: option.desc });
     });
+    if (!this.isChordPending()) return;
+    this.chordOverlayEl.removeAttribute("hidden");
     this.chordOverlayEl.removeClass("is-hidden");
     this.startChordTimeout();
   }
@@ -1254,6 +1256,7 @@ class FmView extends ItemView {
   hideChordOverlay() {
     this.clearChordTimeout();
     if (this.chordOverlayEl) {
+      this.chordOverlayEl.setAttribute("hidden", "true");
       this.chordOverlayEl.addClass("is-hidden");
     }
   }
