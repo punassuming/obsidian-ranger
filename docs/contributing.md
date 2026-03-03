@@ -156,6 +156,8 @@ The repository uses **automatic version bumping** when pull requests are merged 
    - **Minor version** (0.6.1 → 0.7.0): Include `[minor]`, `feature`, `enhancement`, or `minor version` in PR title or description
    - **Patch version** (0.6.1 → 0.6.2): Default for all other PRs (bug fixes, chores, etc.)
 
+3. If direct commits are made to `main`, you can run **Auto Version Bump** manually from the Actions tab using **Run workflow** and select `patch`, `minor`, or `major`.
+
 ### Example PR Titles
 
 ```
