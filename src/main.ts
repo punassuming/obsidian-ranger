@@ -219,7 +219,7 @@ function setEntryIcon(el: HTMLElement, entry: TAbstractFile) {
 
 const VIEW_TYPE_FM = "file-nav-ranger-view";
 const TAB_SWITCH_NOTICE_THROTTLE_MS = 500;
-const CHORD_PENDING_TIMEOUT_MS = 2500;
+const CHORD_PENDING_TIMEOUT_MS = 1000;
 const VAULT_REFRESH_DEBOUNCE_MS = 150;
 const ENTRY_NAME_COLLATOR = new Intl.Collator(undefined, {
   numeric: true,
