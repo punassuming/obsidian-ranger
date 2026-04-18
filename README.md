@@ -72,6 +72,9 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `x` | Cut file(s) or folder(s) (for moving) |
 | `d` | Delete file(s) or folder(s) |
 | `p` | Paste copied/cut item(s) |
+| `on` | Sort by name |
+| `od` | Sort by modified date/time |
+| `os` | Sort by size |
 | `a` | Create new note |
 | `A` | Create new folder |
 | `r` | Rename selected item |
@@ -80,6 +83,11 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `zp` | Toggle preview mode (rendered/text) |
 | `zm` | Toggle deer mode (structure-only) |
 | `q` / `Esc` | Close File Nav - Ranger for Obsidian (or exit search) |
+
+**Sort behavior notes:**
+- `od` (date/time) sorts newest first.
+- `os` (size) sorts largest first.
+- Folder entries use fallback metadata values for date/size sorting.
 
 ### Search and Filter Modes
 
@@ -183,6 +191,7 @@ Access plugin settings via Settings → File Nav - Ranger for Obsidian:
 ### Folder Options
 - **Show hidden folders**: Include dotfolders in folder results
 - **Group folders first**: Control folder-first sorting
+- **Sort by**: Choose sort mode (name, modified date/time, size)
 
 ### Multi-file Operations
 - **Confirm before copying**: Show confirmation dialog when copying files (optional)

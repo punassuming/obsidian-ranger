@@ -34,6 +34,9 @@ Press **`-`** (hyphen) or use Command Palette: "Open File Nav - Ranger for Obsid
 | `A` | Create new folder |
 | `r` | Rename selected item |
 | `D` | Duplicate selected item |
+| `on` | Sort by name |
+| `od` | Sort by modified date/time |
+| `os` | Sort by size |
 
 ## Search and Filter
 
@@ -150,6 +153,7 @@ Access via: **Settings → File Nav - Ranger for Obsidian**
 - **Show hidden files** - Include dotfiles in results
 - **Show hidden folders** - Include dotfolders in results
 - **Group folders first** - Sort folders before files
+- **Sort by** - Choose sort mode (name, modified date/time, size)
 
 ---
 
