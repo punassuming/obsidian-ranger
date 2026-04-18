@@ -74,6 +74,7 @@ type ChordOption = {
   desc: string;
   action: (view: FmView) => void;
 };
+type SortMode = "name" | "modified" | "size";
 type FmViewState = {
   startFolder?: string | null;
   selectFile?: string | null;
@@ -293,6 +294,23 @@ const Z_CHORD_OPTIONS: ChordOption[] = [
     action: (view: FmView) => { void view.toggleDeerMode(); },
   },
 ];
+const O_CHORD_OPTIONS: ChordOption[] = [
+  {
+    keys: ["o", "n"],
+    desc: "sort by name",
+    action: (view: FmView) => view.setSortMode("name"),
+  },
+  {
+    keys: ["o", "d"],
+    desc: "sort by date/time",
+    action: (view: FmView) => view.setSortMode("modified"),
+  },
+  {
+    keys: ["o", "s"],
+    desc: "sort by size",
+    action: (view: FmView) => view.setSortMode("size"),
+  },
+];
 function normalizePathForPrefixCheck(path: string): string {
   if (!path || path === "/") return "/";
   return path.replace(/\/+$/, "");
@@ -336,6 +354,7 @@ class FmView extends ItemView {
   showHiddenFolders: boolean;
   showFileExtensions: boolean;
   sortFoldersFirst: boolean;
+  sortMode: SortMode;
   showInlineMetadata: boolean;
   splitRatio: number;
   previewMode: string;
@@ -351,6 +370,7 @@ class FmView extends ItemView {
   chordOverlayListEl: HTMLElement | null;
   _gChordPending: boolean;
   _zChordPending: boolean;
+  _oChordPending: boolean;
   _vaultRefreshTimer: number | null;
   _vaultRefreshRequested: boolean;
   chordTimeoutId: number | null;
@@ -393,6 +413,7 @@ class FmView extends ItemView {
     this.showHiddenFolders = true;
     this.showFileExtensions = true;
     this.sortFoldersFirst = true;
+    this.sortMode = "name";
     this.showInlineMetadata = false;
     this.splitRatio = 35;
     this.previewMode = "rendered";
@@ -412,6 +433,7 @@ class FmView extends ItemView {
     this.chordOverlayListEl = null;
     this._gChordPending = false;
     this._zChordPending = false;
+    this._oChordPending = false;
     this._vaultRefreshTimer = null;
     this._vaultRefreshRequested = false;
     this.chordTimeoutId = null;
@@ -490,6 +512,7 @@ class FmView extends ItemView {
       this.showHiddenFolders = !!s.showHiddenFolders;
       this.showFileExtensions = !!s.showFileExtensions;
       this.sortFoldersFirst = !!s.sortFoldersFirst;
+      this.sortMode = isSortMode(s.sortMode) ? s.sortMode : "name";
       this.showInlineMetadata = !!s.showInlineMetadata;
       this.splitRatio = typeof s.defaultSplitRatio === "number" ? s.defaultSplitRatio : 35;
     }
@@ -665,6 +688,7 @@ class FmView extends ItemView {
           "y",
           "x",
           "d",
+          "o",
           "p",
           "v",
           " ",
@@ -698,6 +722,7 @@ class FmView extends ItemView {
       else if (k === "N") this.cycleSearch(-1);
       else if (k === "Escape" || k === "q") this.closeView();
       else if (k === "z") this.handleZ();
+      else if (k === "o") this.handleO();
       else if (k === "y") this.copyEntry();
       else if (k === "x") this.cutEntry();
       else if (k === "d") this.deleteEntry();
@@ -783,14 +808,33 @@ class FmView extends ItemView {
         files.push(child);
       }
     }
+    const compareEntries = (a: Entry, b: Entry) =>
+      this.compareEntriesBySortMode(a, b);
     if (this.sortFoldersFirst) {
-      dirs.sort((a, b) => ENTRY_NAME_COLLATOR.compare(a.name, b.name));
-      files.sort((a, b) => ENTRY_NAME_COLLATOR.compare(a.name, b.name));
+      dirs.sort(compareEntries);
+      files.sort(compareEntries);
       return [...dirs, ...files];
     }
-    return [...dirs, ...files].sort((a, b) =>
-      ENTRY_NAME_COLLATOR.compare(a.name, b.name),
-    );
+    return [...dirs, ...files].sort(compareEntries);
+  }
+
+  getEntryModifiedTime(entry: Entry) {
+    return entry.stat?.mtime ? Number(entry.stat.mtime) : 0;
+  }
+
+  getEntrySize(entry: Entry) {
+    return entry.stat?.size ?? 0;
+  }
+
+  compareEntriesBySortMode(a: Entry, b: Entry) {
+    if (this.sortMode === "modified") {
+      const byModifiedTime = this.getEntryModifiedTime(b) - this.getEntryModifiedTime(a);
+      if (byModifiedTime !== 0) return byModifiedTime;
+    } else if (this.sortMode === "size") {
+      const bySize = this.getEntrySize(b) - this.getEntrySize(a);
+      if (bySize !== 0) return bySize;
+    }
+    return ENTRY_NAME_COLLATOR.compare(a.name, b.name);
   }
 
   getEntryLabel(entry: Entry) {
@@ -1205,6 +1249,27 @@ class FmView extends ItemView {
     this.showChordOverlay("z", Z_CHORD_OPTIONS);
   }
 
+  handleO() {
+    this.cancelChordOverlay();
+    this._oChordPending = true;
+    this.showChordOverlay("o", O_CHORD_OPTIONS);
+  }
+
+  setSortMode(mode: SortMode, showNotice = true) {
+    this.plugin.settings.sortMode = mode;
+    void this.plugin.saveSettings();
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    for (const leaf of leaves) {
+      const view = leaf.view as FmView;
+      view.sortMode = mode;
+      view.render();
+    }
+    if (showNotice) {
+      const modeLabel = mode === "modified" ? "date/time" : mode;
+      new Notice(`Sort by ${modeLabel}`);
+    }
+  }
+
   showChordOverlay(label: string, options: ChordOption[]) {
     if (!this.hostEl) return;
     if (!this.chordOverlayEl) {
@@ -1268,11 +1333,14 @@ class FmView extends ItemView {
     if (this._zChordPending) {
       this._zChordPending = false;
     }
+    if (this._oChordPending) {
+      this._oChordPending = false;
+    }
     this.hideChordOverlay();
   }
 
   isChordPending() {
-    if (!this._gChordPending && !this._zChordPending) return false;
+    if (!this._gChordPending && !this._zChordPending && !this._oChordPending) return false;
     if (this.chordPendingUntil !== null && Date.now() >= this.chordPendingUntil) {
       this.cancelChordOverlay();
       return false;
@@ -1308,6 +1376,16 @@ class FmView extends ItemView {
     if (this._zChordPending) {
       const normalizedKey = key.toLowerCase();
       const option = Z_CHORD_OPTIONS.find(
+        (entry) => entry.keys[1] === normalizedKey,
+      );
+      if (!option) return false;
+      this.cancelChordOverlay();
+      option.action(this);
+      return true;
+    }
+    if (this._oChordPending) {
+      const normalizedKey = key.toLowerCase();
+      const option = O_CHORD_OPTIONS.find(
         (entry) => entry.keys[1] === normalizedKey,
       );
       if (!option) return false;
@@ -2479,6 +2557,7 @@ class FmView extends ItemView {
       { keys: ["x"], desc: "cut" },
       { keys: ["d"], desc: "delete" },
       { keys: ["p"], desc: "paste" },
+      { keys: ["on", "od", "os"], desc: "sort" },
       { keys: ["zd"], desc: "toggle panes" },
       { keys: ["zp"], desc: "preview mode" },
       { keys: ["q"], desc: "close" },
@@ -2644,6 +2723,7 @@ interface FmPluginSettings {
   showHiddenFolders: boolean;
   showFileExtensions: boolean;
   sortFoldersFirst: boolean;
+  sortMode: SortMode;
   confirmCopy: boolean;
   confirmMove: boolean;
   showInlineMetadata: boolean;
@@ -2658,6 +2738,7 @@ const DEFAULT_SETTINGS: FmPluginSettings = {
   showHiddenFolders: true,
   showFileExtensions: true,
   sortFoldersFirst: true,
+  sortMode: "name",
   confirmCopy: false,
   confirmMove: false,
   showInlineMetadata: false,
@@ -2674,6 +2755,10 @@ function isBoolean(value: unknown): value is boolean {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number";
+}
+
+function isSortMode(value: unknown): value is SortMode {
+  return value === "name" || value === "modified" || value === "size";
 }
 
 function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
@@ -2695,11 +2780,16 @@ function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
   const numberKeys = new Set<keyof FmPluginSettings>([
     "defaultSplitRatio",
   ]);
+  const stringKeys = new Set<keyof FmPluginSettings>([
+    "sortMode",
+  ]);
   for (const [key, settingValue] of entries) {
     if (booleanKeys.has(key as keyof FmPluginSettings)) {
       if (!isBoolean(settingValue)) return false;
     } else if (numberKeys.has(key as keyof FmPluginSettings)) {
       if (!isNumber(settingValue)) return false;
+    } else if (stringKeys.has(key as keyof FmPluginSettings)) {
+      if (!isSortMode(settingValue)) return false;
     } else {
       return false;
     }
@@ -2944,6 +3034,28 @@ class FmSettingTab extends PluginSettingTab {
             for (const leaf of leaves) {
               const view = leaf.view as FmView;
               view.sortFoldersFirst = v;
+              view.render();
+            }
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Sort by")
+      .setDesc("Choose file and folder sort mode")
+      .addDropdown((d) =>
+        d
+          .addOption("name", "Name")
+          .addOption("modified", "Date/time modified")
+          .addOption("size", "Size")
+          .setValue(this.plugin.settings.sortMode)
+          .onChange(async (v) => {
+            if (!isSortMode(v)) return;
+            this.plugin.settings.sortMode = v;
+            await this.plugin.saveSettings();
+            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+            for (const leaf of leaves) {
+              const view = leaf.view as FmView;
+              view.sortMode = v;
               view.render();
             }
           }),
