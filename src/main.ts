@@ -837,6 +837,7 @@ class FmView extends ItemView {
     // Date/time and size sorts are intentionally descending so newest/largest
     // entries appear first; name sort remains ascending and is used as a tie-breaker.
     // This comparator applies within each partition when folder-first is enabled.
+    // Folders use fallback values (0) for size/modified metadata.
     if (this.sortMode === "modified") {
       const byModifiedTime = this.getEntryModifiedTime(b) - this.getEntryModifiedTime(a);
       if (byModifiedTime !== 0) return byModifiedTime;

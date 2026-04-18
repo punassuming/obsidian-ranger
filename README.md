@@ -84,6 +84,11 @@ A complete file manager for Obsidian with keyboard navigation and file operation
 | `zm` | Toggle deer mode (structure-only) |
 | `q` / `Esc` | Close File Nav - Ranger for Obsidian (or exit search) |
 
+**Sort behavior notes:**
+- `od` (date/time) sorts newest first.
+- `os` (size) sorts largest first.
+- Folder entries use fallback metadata values for date/size sorting.
+
 ### Search and Filter Modes
 
 **Search Mode (`/`):**
