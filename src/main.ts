@@ -247,6 +247,11 @@ const IMAGE_EXTENSIONS = [
 ];
 
 const SHORT_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const SORT_MODE_LABELS: Record<SortMode, string> = {
+  name: "Name",
+  modified: "Date/time modified",
+  size: "Size",
+};
 
 const G_CHORD_OPTIONS = [
   { keys: ["g", "g"], desc: "top", action: (view: FmView) => view.jumpTop() },
@@ -820,7 +825,7 @@ class FmView extends ItemView {
 
   getEntryModifiedTime(entry: Entry) {
     if (!(entry instanceof TFile)) return 0;
-    return entry.stat?.mtime ? Number(entry.stat.mtime) : 0;
+    return entry.stat?.mtime ?? 0;
   }
 
   getEntrySize(entry: Entry) {
@@ -829,6 +834,9 @@ class FmView extends ItemView {
   }
 
   compareEntriesBySortMode(a: Entry, b: Entry) {
+    // Date/time and size sorts are intentionally descending so newest/largest
+    // entries appear first; name sort remains ascending and is used as a tie-breaker.
+    // This comparator applies within each partition when folder-first is enabled.
     if (this.sortMode === "modified") {
       const byModifiedTime = this.getEntryModifiedTime(b) - this.getEntryModifiedTime(a);
       if (byModifiedTime !== 0) return byModifiedTime;
@@ -1258,18 +1266,7 @@ class FmView extends ItemView {
   }
 
   setSortMode(mode: SortMode, showNotice = true) {
-    this.plugin.settings.sortMode = mode;
-    void this.plugin.saveSettings();
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
-    for (const leaf of leaves) {
-      const view = leaf.view as FmView;
-      view.sortMode = mode;
-      view.render();
-    }
-    if (showNotice) {
-      const modeLabel = mode === "modified" ? "date/time" : mode;
-      new Notice(`Sort by ${modeLabel}`);
-    }
+    void this.plugin.applySortMode(mode, { showNotice });
   }
 
   showChordOverlay(label: string, options: ChordOption[]) {
@@ -2559,7 +2556,9 @@ class FmView extends ItemView {
       { keys: ["x"], desc: "cut" },
       { keys: ["d"], desc: "delete" },
       { keys: ["p"], desc: "paste" },
-      { keys: ["on", "od", "os"], desc: "sort" },
+      { keys: ["on"], desc: "sort by name" },
+      { keys: ["od"], desc: "sort by date/time" },
+      { keys: ["os"], desc: "sort by size" },
       { keys: ["zd"], desc: "toggle panes" },
       { keys: ["zp"], desc: "preview mode" },
       { keys: ["q"], desc: "close" },
@@ -2782,15 +2781,12 @@ function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
   const numberKeys = new Set<keyof FmPluginSettings>([
     "defaultSplitRatio",
   ]);
-  const stringKeys = new Set<keyof FmPluginSettings>([
-    "sortMode",
-  ]);
   for (const [key, settingValue] of entries) {
     if (booleanKeys.has(key as keyof FmPluginSettings)) {
       if (!isBoolean(settingValue)) return false;
     } else if (numberKeys.has(key as keyof FmPluginSettings)) {
       if (!isNumber(settingValue)) return false;
-    } else if (stringKeys.has(key as keyof FmPluginSettings)) {
+    } else if (key === "sortMode") {
       if (!isSortMode(settingValue)) return false;
     } else {
       return false;
@@ -2844,6 +2840,20 @@ class FmPlugin extends Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  async applySortMode(mode: SortMode, options?: { showNotice?: boolean }) {
+    this.settings.sortMode = mode;
+    await this.saveSettings();
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
+    for (const leaf of leaves) {
+      const view = leaf.view as FmView;
+      view.sortMode = mode;
+      view.render();
+    }
+    if (options?.showNotice) {
+      new Notice(`Sort by ${SORT_MODE_LABELS[mode].toLowerCase()}`);
+    }
   }
 
   async openFileNav() {
@@ -3046,20 +3056,13 @@ class FmSettingTab extends PluginSettingTab {
       .setDesc("Choose file and folder sort mode")
       .addDropdown((d) =>
         d
-          .addOption("name", "Name")
-          .addOption("modified", "Date/time modified")
-          .addOption("size", "Size")
+          .addOption("name", SORT_MODE_LABELS.name)
+          .addOption("modified", SORT_MODE_LABELS.modified)
+          .addOption("size", SORT_MODE_LABELS.size)
           .setValue(this.plugin.settings.sortMode)
           .onChange(async (v) => {
             if (!isSortMode(v)) return;
-            this.plugin.settings.sortMode = v;
-            await this.plugin.saveSettings();
-            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
-            for (const leaf of leaves) {
-              const view = leaf.view as FmView;
-              view.sortMode = v;
-              view.render();
-            }
+            await this.plugin.applySortMode(v);
           }),
       );
 
