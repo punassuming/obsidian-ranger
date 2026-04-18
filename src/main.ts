@@ -819,10 +819,12 @@ class FmView extends ItemView {
   }
 
   getEntryModifiedTime(entry: Entry) {
+    if (!(entry instanceof TFile)) return 0;
     return entry.stat?.mtime ? Number(entry.stat.mtime) : 0;
   }
 
   getEntrySize(entry: Entry) {
+    if (!(entry instanceof TFile)) return 0;
     return entry.stat?.size ?? 0;
   }
 
