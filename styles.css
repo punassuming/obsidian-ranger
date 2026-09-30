@@ -1,5 +1,10 @@
+.workspace-leaf-content[data-type="file-nav-ranger-view"] .view-header {
+  height: 32px;
+  min-height: 32px;
+}
+
 .fm-fm {
-  padding: var(--size-4-3) var(--size-4-4);
+  padding: var(--size-4-1) var(--size-4-3) var(--size-4-2);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -26,8 +31,9 @@
   font-family: var(--font-monospace);
   font-size: var(--font-ui-small);
   color: var(--text-normal);
-  margin-bottom: var(--size-4-2);
-  padding: var(--size-2-2) var(--size-4-2);
+  margin-bottom: var(--size-4-1);
+  padding: var(--size-2-1) var(--size-4-2);
+  line-height: 1.2;
 }
 .fm-breadcrumb-segment {
   cursor: pointer;
@@ -262,39 +268,41 @@
 
 /* Status bar */
 .fm-fm .fm-status {
-  margin-top: var(--size-4-2);
-  padding: var(--size-4-2) var(--size-4-2);
+  margin-top: var(--size-4-1);
+  padding: var(--size-2-2) var(--size-4-2);
   background: var(--background-secondary);
   border-radius: var(--radius-m);
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--size-4-3);
+  gap: var(--size-2-1) var(--size-4-2);
+  line-height: 1.2;
   font-family: var(--font-monospace);
 }
 .fm-fm .fm-status-hint {
   display: inline-flex;
   align-items: center;
-  gap: var(--size-2-2);
+  gap: var(--size-2-1);
 }
 .fm-fm .fm-status-key {
   background: var(--background-modifier-border);
-  padding: var(--size-2-1) var(--size-4-1);
+  padding: 0 3px;
   border-radius: var(--radius-xs);
   font-weight: var(--font-semibold);
   color: var(--text-normal);
-  font-size: var(--font-ui-smaller);
+  font-size: 0.9em;
+  line-height: 1.25;
 }
 .fm-fm .fm-status-sep {
   color: var(--text-faint);
-  margin: 0 var(--size-2-1);
+  margin: 0;
 }
 
 .fm-fm .fm-selection-info {
   font-weight: var(--font-semibold);
   color: var(--interactive-accent);
-  margin-right: var(--size-4-3);
+  margin-right: var(--size-4-1);
 }
 
 .fm-fm .fm-chord-overlay {
@@ -389,8 +397,8 @@
   color: var(--interactive-accent);
   font-weight: var(--font-semibold);
   border-left: 1px solid var(--background-modifier-border);
-  padding-left: var(--size-4-2);
-  margin-left: var(--size-4-2);
+  padding-left: var(--size-4-1);
+  margin-left: var(--size-4-1);
 }
 .fm-clipboard-indicator.is-cut {
   color: var(--color-orange);

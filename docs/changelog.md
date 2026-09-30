@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Continue batch deletion after an individual failure and report successful and failed items.
 - Preserve valid settings when an individual saved value is invalid, and constrain the saved split ratio to 10–80.
 
+### Changed
+- Tightened the view header and condensed the footer shortcut hints.
+
 ## [0.6.1] - 2024-12-22
 
 ### Changed

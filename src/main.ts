@@ -64,6 +64,7 @@ import {
 } from "obsidian";
 import {
   copyFolderTree,
+  isFolderDestinationInsideSource,
   normalizeSettings,
   runSequentialBatch,
   sortEntries,
@@ -321,23 +322,9 @@ const O_CHORD_OPTIONS: ChordOption[] = [
     action: (view: FmView) => view.setSortMode("size"),
   },
 ];
-function normalizePathForPrefixCheck(path: string): string {
-  if (!path || path === "/") return "/";
-  return path.replace(/\/+$/, "");
-}
-
-function isDescendantPath(parentPath: string, maybeChildPath: string): boolean {
-  const parent = normalizePathForPrefixCheck(parentPath);
-  const child = normalizePathForPrefixCheck(maybeChildPath);
-  if (parent === "/") return child !== "/";
-  return child.startsWith(parent + "/");
-}
-
 function isFolderIntoDescendant(source: Entry, destFolder: TFolder): boolean {
   if (!(source instanceof TFolder)) return false;
-  const srcPath = normalizePathForPrefixCheck(source.path);
-  const destPath = normalizePathForPrefixCheck(destFolder.path);
-  return srcPath === destPath || isDescendantPath(srcPath, destPath);
+  return isFolderDestinationInsideSource(source.path, destFolder.path);
 }
 
 class FmView extends ItemView {

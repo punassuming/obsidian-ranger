@@ -18,6 +18,15 @@ export function sortEntries(entries, options) {
   return [...entries].sort(compare);
 }
 
+export function isFolderDestinationInsideSource(sourcePath, destinationPath) {
+  const normalize = (path) => !path || path === "/" ? "/" : path.replace(/\/+$/, "");
+  const source = normalize(sourcePath);
+  const destination = normalize(destinationPath);
+  if (source === destination) return true;
+  if (source === "/") return destination !== "/";
+  return destination.startsWith(`${source}/`);
+}
+
 export function normalizeSettings(value, defaults, booleanKeys) {
   const settings = { ...defaults };
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

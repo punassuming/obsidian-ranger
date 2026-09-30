@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   copyFolderTree,
+  isFolderDestinationInsideSource,
   normalizeSettings,
   runSequentialBatch,
   sortEntries,
@@ -51,6 +52,16 @@ test("sorting supports natural names, newest/largest first, and folder grouping"
   assert.deepEqual(sortEntries(entries, options("modified", true)).map(({ name }) => name), [
     "folder2", "file10.md", "file1.md", "file2.md",
   ]);
+});
+
+test("folder destination safety matches path segments and handles root paths", () => {
+  assert.equal(isFolderDestinationInsideSource("projects", "projects"), true);
+  assert.equal(isFolderDestinationInsideSource("projects", "projects/note.md"), true);
+  assert.equal(isFolderDestinationInsideSource("projects/", "projects/archive/"), true);
+  assert.equal(isFolderDestinationInsideSource("projects", "projects-old"), false);
+  assert.equal(isFolderDestinationInsideSource("projects", "other/projects"), false);
+  assert.equal(isFolderDestinationInsideSource("/", "notes"), true);
+  assert.equal(isFolderDestinationInsideSource("/", "/"), true);
 });
 
 test("settings normalization keeps valid values and defaults only invalid fields", () => {
@@ -134,6 +145,35 @@ test("recursive folder copy removes the partial destination after a nested copy 
   assert.deepEqual(createdFolders, ["source copy", "source copy/nested"]);
   assert.deepEqual(copiedFiles, ["source copy/good.md"]);
   assert.deepEqual(removedFolders, ["source copy"]);
+});
+
+test("recursive folder copy reproduces nested folders and files", async () => {
+  const source = {
+    name: "source",
+    children: [
+      { name: "note.md", file: true },
+      { name: "assets", children: [{ name: "image.png", file: true }] },
+    ],
+  };
+  const createdFolders = [];
+  const copiedFiles = [];
+  const removedFolders = [];
+
+  await copyFolderTree(source, "copy", {
+    createFolder: async (path) => createdFolders.push(path),
+    childrenOf: (folder) => folder.children ?? [],
+    nameOf: (entry) => entry.name,
+    isFolder: (entry) => !entry.file,
+    copyFile: async (entry, path) => copiedFiles.push([entry.name, path]),
+    deleteFolder: async (path) => removedFolders.push(path),
+  });
+
+  assert.deepEqual(createdFolders, ["copy", "copy/assets"]);
+  assert.deepEqual(copiedFiles, [
+    ["note.md", "copy/note.md"],
+    ["image.png", "copy/assets/image.png"],
+  ]);
+  assert.deepEqual(removedFolders, []);
 });
 
 test("recursive folder copy does not remove a destination when creation fails", async () => {

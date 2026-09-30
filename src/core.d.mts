@@ -12,6 +12,11 @@ export function sortEntries<T extends { name: string }>(
   options: CoreSortOptions<T>,
 ): T[];
 
+export function isFolderDestinationInsideSource(
+  sourcePath: string,
+  destinationPath: string,
+): boolean;
+
 export function normalizeSettings<T extends object>(
   value: unknown,
   defaults: T,
