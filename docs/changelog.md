@@ -5,6 +5,13 @@ All notable changes to File Nav - Ranger for Obsidian will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Keep the selected entry stable when changing sort mode and when restoring folder selection after clicking an entry.
+- Continue batch deletion after an individual failure and report successful and failed items.
+- Preserve valid settings when an individual saved value is invalid, and constrain the saved split ratio to 10–80.
+
 ## [0.6.1] - 2024-12-22
 
 ### Changed

@@ -90,7 +90,6 @@ type LeafWithTitle = WorkspaceLeaf & {
   setTitle?: (title: string) => void;
   tabHeaderInnerTitleEl?: HTMLElement;
 };
-type FmPluginSettingsData = Partial<FmPluginSettings>;
 
 // Helper: choose an icon name for a file based on extension
 function iconForFileName(name: string): string {
@@ -1179,6 +1178,7 @@ class FmView extends ItemView {
           this.renderSelectionOnly();
           this.renderPreview();
         }
+        this.saveCurrentSelection();
       });
       item.addEventListener("dblclick", () => {
         this.selectedIndex = idx;
@@ -1514,23 +1514,41 @@ class FmView extends ItemView {
     const confirmed = await this.showDeleteConfirmation(entries, actionLabel);
     if (!confirmed) return;
 
-    // Delete all selected entries
+    const selectedPath = this.entries[this.selectedIndex]?.path;
+    const selectedPaths = new Set(this.selectedFiles);
+    let successCount = 0;
+    const failures: string[] = [];
+    const failedEntries: Entry[] = [];
     for (const entry of entries) {
       const isFolder = entry instanceof TFolder;
-      await this.trashOrDeleteEntry(entry, isFolder);
-    }
-    
-    // Clear selection after delete
-    this.clearSelection();
-    this.render();
-    
-    if (entries.length === 1) {
-      const entry = entries[0];
-      if (entry) {
-        new Notice(`${actionLabel}d: ${entry.name}`);
+      try {
+        await this.trashOrDeleteEntry(entry, isFolder);
+        successCount++;
+      } catch (err) {
+        failures.push(`${entry.path}: ${(err as Error).message}`);
+        failedEntries.push(entry);
       }
+    }
+
+    this.selectedFiles.clear();
+    for (const entry of failedEntries) {
+      if (selectedPaths.has(entry.path)) this.selectedFiles.add(entry.path);
+    }
+    if (selectedPath && failedEntries.some((entry) => entry.path === selectedPath)) {
+      this.preselectPath = selectedPath;
+    }
+    this.renderStatusBar();
+    this.render();
+
+    if (failures.length === 0 && entries.length === 1) {
+      const entry = entries[0];
+      if (entry) new Notice(`${actionLabel}d: ${entry.name}`);
+    } else if (failures.length === 0) {
+      new Notice(`${actionLabel}d ${successCount} items`);
+    } else if (successCount === 0) {
+      new Notice(`Failed to ${actionLabel.toLowerCase()} ${failures.length} items: ${failures.join("; ")}`);
     } else {
-      new Notice(`${actionLabel}d ${entries.length} items`);
+      new Notice(`${actionLabel}d ${successCount} items; failed ${failures.length}: ${failures.join("; ")}`);
     }
   }
 
@@ -2755,45 +2773,29 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
-function isNumber(value: unknown): value is number {
-  return typeof value === "number";
-}
-
 function isSortMode(value: unknown): value is SortMode {
   return value === "name" || value === "modified" || value === "size";
 }
 
-function isFmPluginSettingsData(value: unknown): value is FmPluginSettingsData {
-  if (!isRecord(value)) return false;
-  const entries = Object.entries(value);
-  if (entries.length === 0) return true;
-  const booleanKeys = new Set<keyof FmPluginSettings>([
-    "showPreview",
-    "showDetails",
-    "showHiddenFiles",
-    "showHiddenFolders",
-    "showFileExtensions",
-    "sortFoldersFirst",
-    "confirmCopy",
-    "confirmMove",
-    "showInlineMetadata",
-    "deerMode",
-  ]);
-  const numberKeys = new Set<keyof FmPluginSettings>([
-    "defaultSplitRatio",
-  ]);
-  for (const [key, settingValue] of entries) {
-    if (booleanKeys.has(key as keyof FmPluginSettings)) {
-      if (!isBoolean(settingValue)) return false;
-    } else if (numberKeys.has(key as keyof FmPluginSettings)) {
-      if (!isNumber(settingValue)) return false;
-    } else if (key === "sortMode") {
-      if (!isSortMode(settingValue)) return false;
-    } else {
-      return false;
-    }
+function normalizeSettings(value: unknown): FmPluginSettings {
+  const settings = { ...DEFAULT_SETTINGS };
+  if (!isRecord(value)) return settings;
+
+  if (isBoolean(value.showPreview)) settings.showPreview = value.showPreview;
+  if (isBoolean(value.showDetails)) settings.showDetails = value.showDetails;
+  if (isBoolean(value.showHiddenFiles)) settings.showHiddenFiles = value.showHiddenFiles;
+  if (isBoolean(value.showHiddenFolders)) settings.showHiddenFolders = value.showHiddenFolders;
+  if (isBoolean(value.showFileExtensions)) settings.showFileExtensions = value.showFileExtensions;
+  if (isBoolean(value.sortFoldersFirst)) settings.sortFoldersFirst = value.sortFoldersFirst;
+  if (isBoolean(value.confirmCopy)) settings.confirmCopy = value.confirmCopy;
+  if (isBoolean(value.confirmMove)) settings.confirmMove = value.confirmMove;
+  if (isBoolean(value.showInlineMetadata)) settings.showInlineMetadata = value.showInlineMetadata;
+  if (isBoolean(value.deerMode)) settings.deerMode = value.deerMode;
+  if (isSortMode(value.sortMode)) settings.sortMode = value.sortMode;
+  if (typeof value.defaultSplitRatio === "number" && Number.isFinite(value.defaultSplitRatio)) {
+    settings.defaultSplitRatio = Math.min(80, Math.max(10, value.defaultSplitRatio));
   }
-  return true;
+  return settings;
 }
 
 class FmPlugin extends Plugin {
@@ -2835,9 +2837,7 @@ class FmPlugin extends Plugin {
 
   async loadSettings() {
     const loaded: unknown = await this.loadData();
-    this.settings = isFmPluginSettingsData(loaded)
-      ? { ...DEFAULT_SETTINGS, ...loaded }
-      : { ...DEFAULT_SETTINGS };
+    this.settings = normalizeSettings(loaded);
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -2849,7 +2849,9 @@ class FmPlugin extends Plugin {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_FM);
     for (const leaf of leaves) {
       const view = leaf.view as FmView;
+      const selectedPath = view.entries[view.selectedIndex]?.path;
       view.sortMode = mode;
+      if (selectedPath) view.preselectPath = selectedPath;
       view.render();
     }
     if (options?.showNotice) {
