@@ -62,6 +62,12 @@ import {
   Setting,
   Notice,
 } from "obsidian";
+import {
+  copyFolderTree,
+  normalizeSettings,
+  runSequentialBatch,
+  sortEntries,
+} from "./core.mjs";
 
 type Entry = TFile | TFolder;
 type ClipboardOperation = "copy" | "cut";
@@ -812,14 +818,14 @@ class FmView extends ItemView {
         files.push(child);
       }
     }
-    const compareEntries = (a: Entry, b: Entry) =>
-      this.compareEntriesBySortMode(a, b);
-    if (this.sortFoldersFirst) {
-      dirs.sort(compareEntries);
-      files.sort(compareEntries);
-      return [...dirs, ...files];
-    }
-    return [...dirs, ...files].sort(compareEntries);
+    return sortEntries([...dirs, ...files], {
+      foldersFirst: this.sortFoldersFirst,
+      mode: this.sortMode,
+      isFolder: (entry) => entry instanceof TFolder,
+      getModifiedTime: (entry) => this.getEntryModifiedTime(entry),
+      getSize: (entry) => this.getEntrySize(entry),
+      compareNames: (a, b) => ENTRY_NAME_COLLATOR.compare(a, b),
+    });
   }
 
   getEntryModifiedTime(entry: Entry) {
@@ -830,21 +836,6 @@ class FmView extends ItemView {
   getEntrySize(entry: Entry) {
     if (!(entry instanceof TFile)) return 0;
     return entry.stat?.size ?? 0;
-  }
-
-  compareEntriesBySortMode(a: Entry, b: Entry) {
-    // Date/time and size sorts are intentionally descending so newest/largest
-    // entries appear first; name sort remains ascending and is used as a tie-breaker.
-    // This comparator applies within each partition when folder-first is enabled.
-    // Folders use fallback values (0) for size/modified metadata.
-    if (this.sortMode === "modified") {
-      const byModifiedTime = this.getEntryModifiedTime(b) - this.getEntryModifiedTime(a);
-      if (byModifiedTime !== 0) return byModifiedTime;
-    } else if (this.sortMode === "size") {
-      const bySize = this.getEntrySize(b) - this.getEntrySize(a);
-      if (bySize !== 0) return bySize;
-    }
-    return ENTRY_NAME_COLLATOR.compare(a.name, b.name);
   }
 
   getEntryLabel(entry: Entry) {
@@ -1516,19 +1507,14 @@ class FmView extends ItemView {
 
     const selectedPath = this.entries[this.selectedIndex]?.path;
     const selectedPaths = new Set(this.selectedFiles);
-    let successCount = 0;
-    const failures: string[] = [];
-    const failedEntries: Entry[] = [];
-    for (const entry of entries) {
-      const isFolder = entry instanceof TFolder;
-      try {
-        await this.trashOrDeleteEntry(entry, isFolder);
-        successCount++;
-      } catch (err) {
-        failures.push(`${entry.path}: ${(err as Error).message}`);
-        failedEntries.push(entry);
-      }
-    }
+    const batch = await runSequentialBatch(entries, (entry) =>
+      this.trashOrDeleteEntry(entry, entry instanceof TFolder),
+    );
+    const successCount = batch.succeeded.length;
+    const failedEntries = batch.failed.map(({ item }) => item);
+    const failures = batch.failed.map(({ item, error }) =>
+      `${item.path}: ${getErrorMessage(error)}`,
+    );
 
     this.selectedFiles.clear();
     for (const entry of failedEntries) {
@@ -1651,42 +1637,33 @@ class FmView extends ItemView {
       if (!confirmed) return;
     }
 
-    let successCount = 0;
-    let failCount = 0;
-    
-    for (const source of sources) {
-      let success = false;
-      try {
+    const batch = await runSequentialBatch(sources, async (source) => {
         // Safety: prevent pasting/moving/copying a folder into itself or any descendant.
         if (isFolderIntoDescendant(source, destFolder)) {
           new Notice(`Cannot paste folder into itself or a descendant: ${source.name}`);
-          failCount++;
-          continue;
+          return false;
         }
         // Use helper to check if we're pasting in the same location
         if (this.isSameFolderCopy(source, destFolder)) {
           // Need to create a copy with a different name
-          success = await this.copyFileWithNewName(source, destFolder);
+          return this.copyFileWithNewName(source, destFolder);
         } else if (source instanceof TFolder && source.path === destFolder.path) {
           new Notice(`Cannot paste folder ${source.name} into itself`);
-          failCount++;
-          continue;
+          return false;
         } else if (operation === "copy") {
-          success = await this.copyToFolder(source, destFolder);
+          return this.copyToFolder(source, destFolder);
         } else if (operation === "cut") {
-          success = await this.moveToFolder(source, destFolder);
+          return this.moveToFolder(source, destFolder);
         }
-        
-        if (success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (err) {
-        new Notice(`Failed to paste ${source.name}: ${(err as Error).message}`);
-        failCount++;
+        return false;
+      });
+    const successCount = batch.succeeded.length;
+    const failCount = batch.failed.length;
+    batch.failed.forEach(({ item, error }) => {
+      if (error !== undefined) {
+        new Notice(`Failed to paste ${item.name}: ${getErrorMessage(error)}`);
       }
-    }
+    });
     
     // Clear clipboard after cut operation
     if (operation === "cut") {
@@ -1873,19 +1850,24 @@ class FmView extends ItemView {
   }
 
   async copyFolderRecursive(sourceFolder: TFolder, destPath: string) {
-    // Create destination folder
-    await this.app.vault.createFolder(destPath);
-
-    // Copy all children
-    for (const child of sourceFolder.children) {
-      const childDestPath = `${destPath}/${child.name}`;
-      if (child instanceof TFile) {
-        const content = await this.app.vault.read(child);
-        await this.app.vault.create(childDestPath, content);
-      } else if (child instanceof TFolder) {
-        await this.copyFolderRecursive(child, childDestPath);
-      }
-    }
+    const vault = this.app.vault;
+    await copyFolderTree(sourceFolder, destPath, {
+      createFolder: (path) => vault.createFolder(path),
+      childrenOf: (folder) => folder instanceof TFolder ? folder.children : [],
+      nameOf: (entry) => entry.name,
+      isFolder: (entry) => entry instanceof TFolder,
+      copyFile: async (entry, path) => {
+        if (!(entry instanceof TFile)) return;
+        const content = await vault.read(entry);
+        await vault.create(path, content);
+      },
+      deleteFolder: async (path) => {
+        const createdFolder = vault.getAbstractFileByPath(path);
+        // This is a newly created partial copy; remove it permanently instead of trashing incomplete output.
+        // eslint-disable-next-line obsidianmd/prefer-file-manager-trash-file
+        if (createdFolder instanceof TFolder) await vault.delete(createdFolder, true);
+      },
+    });
   }
 
   async moveToFolder(source: Entry, destFolder: TFolder) {
@@ -2769,34 +2751,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
-}
-
 function isSortMode(value: unknown): value is SortMode {
   return value === "name" || value === "modified" || value === "size";
 }
 
-function normalizeSettings(value: unknown): FmPluginSettings {
-  const settings = { ...DEFAULT_SETTINGS };
-  if (!isRecord(value)) return settings;
-
-  if (isBoolean(value.showPreview)) settings.showPreview = value.showPreview;
-  if (isBoolean(value.showDetails)) settings.showDetails = value.showDetails;
-  if (isBoolean(value.showHiddenFiles)) settings.showHiddenFiles = value.showHiddenFiles;
-  if (isBoolean(value.showHiddenFolders)) settings.showHiddenFolders = value.showHiddenFolders;
-  if (isBoolean(value.showFileExtensions)) settings.showFileExtensions = value.showFileExtensions;
-  if (isBoolean(value.sortFoldersFirst)) settings.sortFoldersFirst = value.sortFoldersFirst;
-  if (isBoolean(value.confirmCopy)) settings.confirmCopy = value.confirmCopy;
-  if (isBoolean(value.confirmMove)) settings.confirmMove = value.confirmMove;
-  if (isBoolean(value.showInlineMetadata)) settings.showInlineMetadata = value.showInlineMetadata;
-  if (isBoolean(value.deerMode)) settings.deerMode = value.deerMode;
-  if (isSortMode(value.sortMode)) settings.sortMode = value.sortMode;
-  if (typeof value.defaultSplitRatio === "number" && Number.isFinite(value.defaultSplitRatio)) {
-    settings.defaultSplitRatio = Math.min(80, Math.max(10, value.defaultSplitRatio));
-  }
-  return settings;
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
 }
+
+const BOOLEAN_SETTING_KEYS: (keyof FmPluginSettings)[] = [
+  "showPreview",
+  "showDetails",
+  "showHiddenFiles",
+  "showHiddenFolders",
+  "showFileExtensions",
+  "sortFoldersFirst",
+  "confirmCopy",
+  "confirmMove",
+  "showInlineMetadata",
+  "deerMode",
+];
 
 class FmPlugin extends Plugin {
   settings: FmPluginSettings;
@@ -2837,7 +2811,7 @@ class FmPlugin extends Plugin {
 
   async loadSettings() {
     const loaded: unknown = await this.loadData();
-    this.settings = normalizeSettings(loaded);
+    this.settings = normalizeSettings(loaded, DEFAULT_SETTINGS, BOOLEAN_SETTING_KEYS);
   }
   async saveSettings() {
     await this.saveData(this.settings);

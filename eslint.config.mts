@@ -50,6 +50,7 @@ export default tseslint.config(
 	{
 		ignores: [
 			"node_modules",
+			"**/*.d.mts",
 			"dist",
 			"build.mjs",
 			"esbuild.config.mjs",

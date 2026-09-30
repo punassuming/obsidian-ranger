@@ -23,11 +23,13 @@ Guidance for coding agents working in `obsidian-ranger` (File Nav - Ranger for O
 - Install deps: `npm ci`
 - Dev watch build: `npm run dev`
 - Production build: `npm run build`
+- Tests: `npm test`
 - Lint: `npm run lint`
 - Sync manifest/versions to package version: `npm run version`
 
 Notes:
 - `npm run build` runs TypeScript checks (`tsc -noEmit -skipLibCheck`) and bundles to `main.js`.
+- `npm test` runs the Node.js built-in test runner against pure core logic in `src/core.mjs`.
 - `main.js` is generated from `src/main.ts`; do not hand-edit `main.js` unless explicitly required.
 - `npm run version` updates `manifest.json` and `versions.json` and stages those files.
 
